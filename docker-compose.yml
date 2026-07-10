@@ -1,3 +1,5 @@
+name: personal-hub
+
 services:
   app:
     build:
@@ -72,6 +74,7 @@ services:
 
 volumes:
   personal-hub-db-data:
+    name: personal-hub-db-data
 
 networks:
   personal-hub-network:
