@@ -1,0 +1,31 @@
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
+import { LogoutButton } from "@/components/ui/LogoutButton";
+
+// Admin層: ログイン必須 + role が ADMIN のユーザーのみ許可
+// 未ログイン -> /login へ、ログイン済みだが権限不足 -> /dashboard へ逃がす
+// (「このURLの先に管理画面がある」ことを未認可ユーザーに教えないよう、
+//  404ではなくリダイレクトで自然に本来の場所へ戻す)
+export default async function AdminLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  const user = await getSessionUser();
+  if (!user) {
+    redirect("/login");
+  }
+  if (user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  return (
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-8 py-4 dark:border-gray-800 dark:bg-gray-900">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          管理画面 — {user.email}
+        </span>
+        <LogoutButton />
+      </header>
+      {children}
+    </div>
+  );
+}

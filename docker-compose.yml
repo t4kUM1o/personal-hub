@@ -1,0 +1,78 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: personal-hub-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - personal-hub-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: personal-hub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - personal-hub-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - personal-hub-network
+
+  # スキーマ反映・シード投入など「一度だけ実行したいコマンド」専用のサービス。
+  # builder ステージ（devDependencies含む・prisma CLIあり）を使うため、
+  # 本番用の app イメージを肥大化させずに済む。
+  # 例:
+  #   docker compose run --rm migrate npx prisma db push
+  #   docker compose run --rm migrate node prisma/seed.cjs
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - personal-hub-network
+    profiles:
+      - tools
+
+  # DB接続確認・中身の目視用 (本番運用時は外部公開しないこと)
+  adminer:
+    image: adminer:latest
+    container_name: personal-hub-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - personal-hub-network
+
+volumes:
+  personal-hub-db-data:
+
+networks:
+  personal-hub-network:
+    driver: bridge
