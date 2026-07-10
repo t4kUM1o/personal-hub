@@ -46,9 +46,14 @@ export async function createSession(userId: string, meta: SessionMeta = {}) {
   });
 }
 
-// Server Component / Route Handler から現在のログインユーザーを取得する
-// Cookieが無い・セッションが無効・期限切れの場合は null を返す
-export async function getSessionUser(): Promise<User | null> {
+interface CurrentSession {
+  user: User;
+  sessionId: string;
+}
+
+// Server Component / Route Handler から現在のセッション(ユーザー+セッションID)を取得する
+// Cookieが無い・セッションが無効・失効済み・期限切れの場合は null を返す
+export async function getCurrentSession(): Promise<CurrentSession | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -59,22 +64,50 @@ export async function getSessionUser(): Promise<User | null> {
     include: { user: true },
   });
 
-  if (!session || session.expiresAt < new Date()) {
+  if (!session || session.revokedAt || session.expiresAt < new Date()) {
     return null;
   }
 
-  return session.user;
+  return { user: session.user, sessionId: session.id };
 }
 
-// ログアウト: DB側のセッションを削除し、Cookieを消す
+// ユーザーだけが欲しい場合の簡易版（既存の呼び出し元との互換用）
+export async function getSessionUser(): Promise<User | null> {
+  const current = await getCurrentSession();
+  return current?.user ?? null;
+}
+
+// ログアウト: 削除ではなく「無効化フラグを立てる」方式にすることで、
+// ログイン履歴画面に「いつ・どこからログインし、いつログアウトしたか」を残せるようにする
 export async function destroySession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (token) {
     const tokenHash = hashToken(token);
-    await prisma.session.deleteMany({ where: { tokenHash } });
+    await prisma.session.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+// ログイン履歴・デバイス管理画面用: 指定ユーザーの全セッション(有効/期限切れ/失効済み含む)を新しい順で返す
+export async function listUserSessions(userId: string) {
+  return prisma.session.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+// デバイス管理画面からの「このデバイスをログアウトさせる」用。
+// 呼び出し元で「対象セッションが自分自身のものか」を必ず確認すること。
+export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
+  const result = await prisma.session.updateMany({
+    where: { id: sessionId, userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  return result.count > 0;
 }

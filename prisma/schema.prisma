@@ -27,14 +27,15 @@ model User {
 // 理由: 「デバイス管理」「強制ログアウト」「ログイン履歴」など仕様書にある機能を、
 // 後からこのテーブルを見るだけで実現できる（JWTは発行後に取り消せないため不向き）。
 model Session {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   userAgent String?
   ipAddress String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   expiresAt DateTime
+  revokedAt DateTime?
 
   @@index([userId])
 }

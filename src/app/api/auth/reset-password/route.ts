@@ -31,9 +31,13 @@ export async function POST(request: NextRequest) {
 
   // パスワード変更と同時に、既存の全ログインセッションを無効化する
   // (リセットが必要になった=以前のセッションが乗っ取られている可能性を考慮)
+  // 削除ではなく無効化にすることで、ログイン履歴画面に記録が残る
   await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
-    prisma.session.deleteMany({ where: { userId } }),
+    prisma.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
   ]);
 
   return NextResponse.json({ ok: true });
