@@ -13,6 +13,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      GMAIL_USER: ${GMAIL_USER}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD}
+      APP_BASE_URL: ${APP_BASE_URL}
     depends_on:
       db:
         condition: service_healthy

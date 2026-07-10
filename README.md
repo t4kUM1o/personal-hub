@@ -22,6 +22,18 @@
 - Google/GitHub OAuth、2段階認証(TOTP)、バックアップコード、ログイン履歴画面、デバイス管理画面、ログインのレート制限
   → `Session` に `userAgent` / `ipAddress` は今のうちから持たせてあるので、後で履歴画面を追加する際にスキーマ変更は不要です
 
+## Step 3 で実装したもの（パスワードリセット）
+
+- `PasswordResetToken` モデル追加（Sessionと同じ「トークンのハッシュのみDB保存」方式）
+- Gmail SMTP（アプリパスワード）でのメール送信（`src/lib/mail.ts`）
+- `/forgot-password` → メール送信 → `/reset-password?token=...` → 新パスワード設定の一連の画面
+- パスワードリセット成功時、既存の全ログインセッションを自動的に無効化（乗っ取り対策）
+- メールアドレスの登録有無を外部から推測されないよう、`/api/auth/forgot-password` は常に同じレスポンスを返す
+
+**あえて今回やらないと決めたこと**
+- メール認証（登録確認メール）: 公開の会員登録フォームが無いため出番が無い。招待制ユーザー機能を作る時に着手
+- リセット申請自体のレート制限（Step 2から持ち越し中の「ログインのレート制限」と合わせて後日まとめて対応）
+
 ## 技術スタック
 
 | 分類 | 選定 | 理由 |
@@ -71,6 +83,9 @@ personal-hub/
 cp .env.example .env
 # .env の POSTGRES_PASSWORD / SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD を変更してください
 # パスワードは記号を避けるか、迷ったら: openssl rand -hex 24
+#
+# パスワードリセット機能を使うなら、GMAIL_USER / GMAIL_APP_PASSWORD / APP_BASE_URL も設定してください
+# (APP_BASE_URL は今アクセスしているURL、例: http://192.168.1.5:3000)
 
 docker compose up --build -d
 ```
@@ -96,8 +111,9 @@ docker compose run --rm migrate node prisma/seed.cjs
 ## 次に実装する内容（提案）
 
 1. ~~認証システム（メール+パスワード）~~ → **Step 2で実装済み**
-2. **ブログ機能のDBスキーマ**: Post / Category / Tag モデル設計とPublic側の一覧・詳細ページ実装
-3. **家計簿のDBスキーマ**: Transaction / Account / Category モデル設計と収支入力UI
-4. **認証の強化**: パスワードリセット / メール認証 / 2段階認証(TOTP) / ログイン履歴画面 / レート制限（Step 2で意図的に見送った分）
+2. ~~パスワードリセット・メール認証~~ → **Step 3で実装済み**
+3. **ブログ機能のDBスキーマ**: Post / Category / Tag モデル設計とPublic側の一覧・詳細ページ実装
+4. **家計簿のDBスキーマ**: Transaction / Account / Category モデル設計と収支入力UI
+5. **認証の残り**: 2段階認証(TOTP)・ログイン履歴画面・デバイス管理画面・ログインのレート制限
 
 どれから着手しますか？

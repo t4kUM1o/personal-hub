@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -81,6 +82,13 @@ export default function LoginPage() {
         >
           {isSubmitting ? "ログイン中..." : "ログイン"}
         </button>
+
+        <Link
+          href="/forgot-password"
+          className="mt-4 block text-center text-sm text-gray-500 hover:underline dark:text-gray-400"
+        >
+          パスワードをお忘れですか？
+        </Link>
       </form>
     </main>
   );
