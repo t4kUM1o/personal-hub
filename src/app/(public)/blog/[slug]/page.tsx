@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { renderMarkdown } from "@/lib/markdown";
 
+// 一覧ページと同じ理由で、ビルド時の静的生成を無効化する
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

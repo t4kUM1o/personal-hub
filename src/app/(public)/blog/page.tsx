@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
+// DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
+// (ビルド時点ではまだDATABASE_URLが渡っていないため、静的生成しようとすると失敗する)
+export const dynamic = "force-dynamic";
+
 export default async function BlogPage() {
   const posts = await prisma.post.findMany({
     where: { status: "PUBLISHED" },
