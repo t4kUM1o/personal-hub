@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /kakeibo
+Disallow: /todo
+Disallow: /calendar
+Disallow: /files
+Disallow: /ai-chat
+Disallow: /settings
+Disallow: /api
+Allow: /
