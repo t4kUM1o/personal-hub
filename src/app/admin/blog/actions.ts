@@ -213,7 +213,7 @@ export async function uploadImage(formData: FormData): Promise<{ url: string }> 
     throw new Error("画像サイズは5MB以内にしてください");
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  const uploadDir = path.join(process.cwd(), "uploads");
   await mkdir(uploadDir, { recursive: true });
 
   // 元のファイル名は使わず、ランダムな名前にする(パストラバーサル・上書き事故の防止)

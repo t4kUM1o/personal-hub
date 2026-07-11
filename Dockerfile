@@ -28,7 +28,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # アップロード画像の保存先。Docker Volumeでマウントされるため、
 # 非rootユーザー(nextjs)が書き込めるよう先に権限を用意しておく
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+# (public/の外に置き、専用のRoute Handler経由で配信する)
+RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
 
 USER nextjs
 EXPOSE 3000
