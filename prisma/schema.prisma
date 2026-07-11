@@ -26,6 +26,10 @@ model User {
   transactionCategories TransactionCategory[]
   transactions        Transaction[]
   budgets             Budget[]
+  totpSecret          String?
+  totpEnabled         Boolean               @default(false)
+  backupCodes         BackupCode[]
+  twoFactorChallenges TwoFactorChallenge[]
 }
 
 // JWTではなくDBで管理するセッション方式。
@@ -172,4 +176,26 @@ model Budget {
   monthlyAmount Int
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
+}
+
+// パスワードと同様ハッシュ化して保存(平文比較はしない)
+model BackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ログインでパスワード確認は済んだが、TOTPコード入力待ちの一時的な状態
+model TwoFactorChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

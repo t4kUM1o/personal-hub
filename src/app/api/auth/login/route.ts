@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, resetRateLimit } from "@/lib/rateLimit";
+import { createTwoFactorChallenge } from "@/lib/twoFactorChallenge";
 
 // bcryptで生成した形式のダミーハッシュ。
 // ユーザーが存在しない場合でも必ずbcrypt.compareを実行することで、
@@ -46,6 +47,11 @@ export async function POST(request: NextRequest) {
 
   // ログイン成功したので、このアカウントの失敗カウントはリセットする
   resetRateLimit(rateLimitKey);
+
+  if (user.totpEnabled) {
+    const challengeToken = await createTwoFactorChallenge(user.id);
+    return NextResponse.json({ twoFactorRequired: true, challengeToken });
+  }
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
