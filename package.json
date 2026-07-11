@@ -20,7 +20,8 @@
     "server-only": "^0.0.1",
     "nodemailer": "^6.9.16",
     "marked": "^15.0.0",
-    "isomorphic-dompurify": "^2.19.0"
+    "isomorphic-dompurify": "^2.19.0",
+    "recharts": "^3.0.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

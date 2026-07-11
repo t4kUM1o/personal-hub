@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { deleteTransaction } from "./actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
+import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -24,7 +25,42 @@ function getMonthRange(monthParam?: string) {
   const prev = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
   const next = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
 
-  return { start, end, label, prev, next };
+  return { year, month, start, end, label, prev, next };
+}
+
+async function getMonthlyTrend(userId: string, endYear: number, endMonth: number, monthsBack = 6) {
+  const rangeStart = new Date(endYear, endMonth - monthsBack, 1);
+  const rangeEnd = new Date(endYear, endMonth, 1);
+
+  const rows = await prisma.transaction.findMany({
+    where: { userId, date: { gte: rangeStart, lt: rangeEnd } },
+    select: { type: true, amount: true, date: true },
+  });
+
+  const buckets = new Map<string, { income: number; expense: number }>();
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(endYear, endMonth - 1 - i, 1);
+    buckets.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, {
+      income: 0,
+      expense: 0,
+    });
+  }
+
+  for (const t of rows) {
+    const key = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+    if (t.type === "INCOME") {
+      bucket.income += t.amount;
+    } else {
+      bucket.expense += t.amount;
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([key, v]) => {
+    const monthNum = Number(key.split("-")[1]);
+    return { month: `${monthNum}月`, 収入: v.income, 支出: v.expense };
+  });
 }
 
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
@@ -40,7 +76,7 @@ export default async function KakeiboPage({
   }
 
   const { month } = await searchParams;
-  const { start, end, label, prev, next } = getMonthRange(month);
+  const { year, month: monthNum, start, end, label, prev, next } = getMonthRange(month);
 
   const transactions = await prisma.transaction.findMany({
     where: { userId: user.id, date: { gte: start, lt: end } },
@@ -54,6 +90,18 @@ export default async function KakeiboPage({
   const expense = transactions
     .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + t.amount, 0);
+
+  const categoryTotals = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "EXPENSE") continue;
+    const key = t.category?.name ?? "未分類";
+    categoryTotals.set(key, (categoryTotals.get(key) ?? 0) + t.amount);
+  }
+  const categoryBreakdown = Array.from(categoryTotals.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const monthlyTrend = await getMonthlyTrend(user.id, year, monthNum);
 
   return (
     <main className="p-8">
@@ -110,6 +158,25 @@ export default async function KakeiboPage({
           >
             {yen(income - expense)}
           </p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            カテゴリ別支出（{label}）
+          </h3>
+          <div className="mt-2">
+            <CategoryBreakdownChart data={categoryBreakdown} />
+          </div>
+        </div>
+        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            収支推移（直近6ヶ月）
+          </h3>
+          <div className="mt-2">
+            <MonthlyTrendChart data={monthlyTrend} />
+          </div>
         </div>
       </div>
 
