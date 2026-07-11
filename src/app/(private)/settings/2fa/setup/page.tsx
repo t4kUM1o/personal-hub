@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { generateTotpSecret, generateQrCodeDataUrl } from "@/lib/totp";
 import { TwoFactorSetupForm } from "./TwoFactorSetupForm";
+import { BackLink } from "@/components/ui/BackLink";
 
 export default async function TwoFactorSetupPage() {
   const user = await getSessionUser();
@@ -17,7 +18,8 @@ export default async function TwoFactorSetupPage() {
 
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">2段階認証を設定</h1>
+      <BackLink href="/settings" label="設定に戻る" />
+      <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">2段階認証を設定</h1>
       <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
         Google Authenticator や Microsoft Authenticator などの認証アプリでQRコードを読み取り、
         表示された6桁のコードを入力して有効化してください。

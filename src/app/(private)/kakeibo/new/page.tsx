@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { createTransaction } from "../actions";
 import { TransactionForm } from "../TransactionForm";
+import { BackLink } from "@/components/ui/BackLink";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -20,7 +21,8 @@ export default async function NewTransactionPage() {
 
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">記録を追加</h1>
+      <BackLink href="/kakeibo" label="家計簿に戻る" />
+      <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">記録を追加</h1>
       {accounts.length === 0 ? (
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           先に{" "}

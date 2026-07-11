@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { updatePost } from "../../actions";
 import { PostForm } from "../../PostForm";
+import { BackLink } from "@/components/ui/BackLink";
 
 export default async function EditPostPage({
   params,
@@ -25,7 +26,8 @@ export default async function EditPostPage({
 
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">記事を編集</h1>
+      <BackLink href="/admin/blog" label="ブログ管理に戻る" />
+      <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">記事を編集</h1>
       <PostForm
         action={updatePost}
         categories={categories}
