@@ -58,11 +58,24 @@ export async function createPost(formData: FormData) {
   const body = String(formData.get("body") ?? "");
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "") || null;
-  const status = formData.get("status") === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  const statusInput = String(formData.get("status") ?? "DRAFT");
+  const scheduledAtStr = String(formData.get("scheduledAt") ?? "");
   const tagIds = formData.getAll("tagIds").map(String);
 
   if (!title || !body) {
     throw new Error("タイトルと本文は必須です");
+  }
+
+  let status: "DRAFT" | "SCHEDULED" | "PUBLISHED" = "DRAFT";
+  let publishedAt: Date | null = null;
+  let scheduledAt: Date | null = null;
+
+  if (statusInput === "PUBLISHED") {
+    status = "PUBLISHED";
+    publishedAt = new Date();
+  } else if (statusInput === "SCHEDULED" && scheduledAtStr) {
+    status = "SCHEDULED";
+    scheduledAt = new Date(scheduledAtStr);
   }
 
   const slug = await uniquePostSlug(title);
@@ -74,7 +87,8 @@ export async function createPost(formData: FormData) {
       body,
       excerpt,
       status,
-      publishedAt: status === "PUBLISHED" ? new Date() : null,
+      publishedAt,
+      scheduledAt,
       authorId: user.id,
       categoryId,
       tags: { create: tagIds.map((tagId) => ({ tagId })) },
@@ -94,7 +108,8 @@ export async function updatePost(formData: FormData) {
   const body = String(formData.get("body") ?? "");
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "") || null;
-  const status = formData.get("status") === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  const statusInput = String(formData.get("status") ?? "DRAFT");
+  const scheduledAtStr = String(formData.get("scheduledAt") ?? "");
   const tagIds = formData.getAll("tagIds").map(String);
 
   if (!id || !title || !body) {
@@ -108,6 +123,18 @@ export async function updatePost(formData: FormData) {
 
   const slug = existing.title === title ? existing.slug : await uniquePostSlug(title, id);
 
+  let status: "DRAFT" | "SCHEDULED" | "PUBLISHED" = "DRAFT";
+  let publishedAt: Date | null = null;
+  let scheduledAt: Date | null = null;
+
+  if (statusInput === "PUBLISHED") {
+    status = "PUBLISHED";
+    publishedAt = existing.publishedAt ?? new Date();
+  } else if (statusInput === "SCHEDULED" && scheduledAtStr) {
+    status = "SCHEDULED";
+    scheduledAt = new Date(scheduledAtStr);
+  }
+
   await prisma.$transaction([
     prisma.postTag.deleteMany({ where: { postId: id } }),
     prisma.post.update({
@@ -118,7 +145,8 @@ export async function updatePost(formData: FormData) {
         body,
         excerpt,
         status,
-        publishedAt: status === "PUBLISHED" ? (existing.publishedAt ?? new Date()) : null,
+        publishedAt,
+        scheduledAt,
         categoryId,
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
@@ -222,4 +250,32 @@ export async function uploadImage(formData: FormData): Promise<{ error?: string;
   await writeFile(path.join(uploadDir, filename), buffer);
 
   return { url: `/uploads/${filename}` };
+}
+
+export async function approveComment(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  await prisma.comment.update({ where: { id }, data: { approved: true } });
+  revalidatePath("/admin/blog/comments");
+
+  const comment = await prisma.comment.findUnique({ where: { id }, include: { post: true } });
+  if (comment) {
+    revalidatePath(`/blog/${comment.post.slug}`);
+  }
+}
+
+export async function deleteComment(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const comment = await prisma.comment.findUnique({ where: { id }, include: { post: true } });
+  await prisma.comment.delete({ where: { id } });
+  revalidatePath("/admin/blog/comments");
+
+  if (comment) {
+    revalidatePath(`/blog/${comment.post.slug}`);
+  }
 }

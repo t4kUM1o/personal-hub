@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PostList } from "@/components/blog/PostList";
+import { Breadcrumbs } from "@/components/blog/Breadcrumbs";
+import { promoteScheduledPosts } from "@/lib/posts";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -11,6 +13,8 @@ export default async function BlogPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await promoteScheduledPosts();
+
   const { q } = await searchParams;
 
   const where: Prisma.PostWhereInput = { status: "PUBLISHED" };
@@ -30,7 +34,8 @@ export default async function BlogPage({
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ブログ</h1>
+      <Breadcrumbs items={[{ label: "TOP", href: "/" }, { label: "ブログ" }]} />
+      <h1 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">ブログ</h1>
 
       <form method="GET" className="mt-6 flex gap-2">
         <input

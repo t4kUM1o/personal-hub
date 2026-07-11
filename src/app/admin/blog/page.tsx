@@ -28,6 +28,9 @@ export default async function AdminBlogPage() {
         <Link href="/admin/blog/tags" className="text-accent hover:underline">
           タグ管理
         </Link>
+        <Link href="/admin/blog/comments" className="text-accent hover:underline">
+          コメント管理
+        </Link>
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-card border border-gray-200 dark:border-gray-800">
@@ -50,10 +53,16 @@ export default async function AdminBlogPage() {
                     className={
                       post.status === "PUBLISHED"
                         ? "rounded-card bg-accent/10 px-2 py-0.5 text-xs text-accent"
-                        : "rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                        : post.status === "SCHEDULED"
+                          ? "rounded-card bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-900 dark:text-yellow-400"
+                          : "rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
                     }
                   >
-                    {post.status === "PUBLISHED" ? "公開中" : "下書き"}
+                    {post.status === "PUBLISHED"
+                      ? "公開中"
+                      : post.status === "SCHEDULED"
+                        ? `予約中 (${post.scheduledAt?.toLocaleString("ja-JP")})`
+                        : "下書き"}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-gray-800 dark:text-gray-200">{post.title}</td>

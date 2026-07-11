@@ -64,6 +64,7 @@ model PasswordResetToken {
 
 enum PostStatus {
   DRAFT
+  SCHEDULED
   PUBLISHED
 }
 
@@ -74,6 +75,7 @@ model Post {
   body        String // Markdown本文
   excerpt     String?
   status      PostStatus @default(DRAFT)
+  scheduledAt DateTime?
   publishedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -82,6 +84,7 @@ model Post {
   categoryId  String?
   category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   tags        PostTag[]
+  comments    Comment[]
 
   @@index([status, publishedAt])
 }
@@ -198,4 +201,17 @@ model TwoFactorChallenge {
   tokenHash String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// 匿名のゲストコメント。スパム対策として承認制(approved)にしている
+model Comment {
+  id         String   @id @default(cuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName String
+  body       String
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([postId])
 }

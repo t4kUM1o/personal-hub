@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { promoteScheduledPosts } from "@/lib/posts";
 
 // DBを見に行くので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ function escapeXml(text: string): string {
 }
 
 export async function GET() {
+  await promoteScheduledPosts();
+
   const baseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
   const posts = await prisma.post.findMany({

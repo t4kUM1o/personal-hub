@@ -1,6 +1,11 @@
 import type { Category, Tag, Post, PostTag } from "@prisma/client";
 import { MarkdownBodyField } from "./MarkdownBodyField";
 
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 interface PostFormProps {
   action: (formData: FormData) => void | Promise<void>;
   categories: Category[];
@@ -13,6 +18,8 @@ export function PostForm({ action, categories, tags, submitLabel, post }: PostFo
   const selectedTagIds = new Set(post?.tags.map((t) => t.tagId) ?? []);
   const inputClass =
     "mt-1 w-full rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-gray-700 dark:bg-gray-900";
+
+  const scheduledAtValue = post?.scheduledAt ? toDatetimeLocalValue(post.scheduledAt) : "";
 
   return (
     <form action={action} className="mt-6 max-w-2xl space-y-5">
@@ -66,7 +73,7 @@ export function PostForm({ action, categories, tags, submitLabel, post }: PostFo
 
       <fieldset className="block text-sm text-gray-600 dark:text-gray-400">
         <legend className="mb-1">公開状態</legend>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-1.5">
             <input
               type="radio"
@@ -77,11 +84,30 @@ export function PostForm({ action, categories, tags, submitLabel, post }: PostFo
             下書き
           </label>
           <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="status"
+              value="SCHEDULED"
+              defaultChecked={post?.status === "SCHEDULED"}
+            />
+            予約投稿
+          </label>
+          <label className="flex items-center gap-1.5">
             <input type="radio" name="status" value="PUBLISHED" defaultChecked={post?.status === "PUBLISHED"} />
             公開
           </label>
         </div>
       </fieldset>
+
+      <label className="block text-sm text-gray-600 dark:text-gray-400">
+        予約日時（「予約投稿」を選んだ場合のみ使用されます）
+        <input
+          type="datetime-local"
+          name="scheduledAt"
+          defaultValue={scheduledAtValue}
+          className={inputClass}
+        />
+      </label>
 
       <button
         type="submit"

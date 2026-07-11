@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PostList } from "@/components/blog/PostList";
+import { Breadcrumbs } from "@/components/blog/Breadcrumbs";
+import { promoteScheduledPosts } from "@/lib/posts";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export default async function CategoryArchivePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  await promoteScheduledPosts();
+
   const { slug } = await params;
 
   const category = await prisma.category.findUnique({ where: { slug } });
@@ -25,10 +28,14 @@ export default async function CategoryArchivePage({
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <Link href="/blog" className="text-sm text-accent hover:underline">
-        ← ブログ一覧
-      </Link>
-      <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+      <Breadcrumbs
+        items={[
+          { label: "TOP", href: "/" },
+          { label: "ブログ", href: "/blog" },
+          { label: `カテゴリ: ${category.name}` },
+        ]}
+      />
+      <h1 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">
         カテゴリ: {category.name}
       </h1>
       <PostList posts={posts} />
