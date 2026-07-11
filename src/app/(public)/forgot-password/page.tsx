@@ -20,7 +20,15 @@ export default function ForgotPasswordPage() {
 
     const data = await res.json().catch(() => ({}));
     setIsSubmitting(false);
-    // サーバー側は常に同じメッセージを返す(存在有無を漏らさないため)ので、そのまま表示する
+
+    if (!res.ok) {
+      // 400(未入力)や429(レート制限)はここで具体的な内容を見せる。
+      // これらはアカウントの存在有無を漏らさないので問題ない。
+      setMessage(data.error ?? "エラーが発生しました");
+      return;
+    }
+
+    // 成功時は常に同じメッセージ(存在有無を漏らさないため)
     setMessage(data.message ?? "処理が完了しました");
   }
 

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createPasswordResetToken } from "@/lib/passwordReset";
 import { sendPasswordResetEmail } from "@/lib/mail";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const GENERIC_MESSAGE =
   "対象のメールアドレスが登録されている場合、パスワード再設定メールを送信しました";
+
+const FORGOT_PASSWORD_RATE_LIMIT = { maxAttempts: 3, windowMs: 60 * 60 * 1000 }; // 1時間に3回まで
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -12,6 +15,17 @@ export async function POST(request: NextRequest) {
 
   if (!email) {
     return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
+  }
+
+  // 実在有無に関わらず同じキーで判定するので、429の有無からアカウントの存在は推測できない
+  const rateLimitKey = `forgot-password:${email}`;
+  const { allowed, retryAfterSeconds } = checkRateLimit(rateLimitKey, FORGOT_PASSWORD_RATE_LIMIT);
+  if (!allowed) {
+    const minutes = Math.ceil((retryAfterSeconds ?? 0) / 60);
+    return NextResponse.json(
+      { error: `リクエストが多すぎます。約${minutes}分後に再度お試しください` },
+      { status: 429 }
+    );
   }
 
   const user = await prisma.user.findUnique({ where: { email } });

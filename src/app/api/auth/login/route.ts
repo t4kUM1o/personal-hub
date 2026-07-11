@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/auth";
+import { checkRateLimit, resetRateLimit } from "@/lib/rateLimit";
 
 // bcryptで生成した形式のダミーハッシュ。
 // ユーザーが存在しない場合でも必ずbcrypt.compareを実行することで、
 // レスポンス内容・時間差から「このメールアドレスは登録されていない」と
 // 外部から推測できないようにする。
 const DUMMY_HASH = "$2a$12$CwTycUXWue0Thq9StjUM0uJ8Y0O1Q0Q0Q0Q0Q0Q0Q0Q0Q0Q0Q0Qe";
+
+const LOGIN_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 }; // 15分に5回まで
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -21,6 +24,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const rateLimitKey = `login:${email}`;
+  const { allowed, retryAfterSeconds } = checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT);
+  if (!allowed) {
+    const minutes = Math.ceil((retryAfterSeconds ?? 0) / 60);
+    return NextResponse.json(
+      { error: `ログイン試行回数が多すぎます。約${minutes}分後に再度お試しください` },
+      { status: 429 }
+    );
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   const isValid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
 
@@ -30,6 +43,9 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // ログイン成功したので、このアカウントの失敗カウントはリセットする
+  resetRateLimit(rateLimitKey);
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
