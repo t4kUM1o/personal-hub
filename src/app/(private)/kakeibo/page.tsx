@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { deleteTransaction } from "./actions";
@@ -108,20 +109,35 @@ export default async function KakeiboPage({
 
   // フィルターは一覧表示だけに効かせる。合計カード・グラフは常に月全体の値のまま。
   const hasFilter = Boolean(typeFilter || accountIdFilter || categoryIdFilter || q);
-  const filteredTransactions = hasFilter
-    ? await prisma.transaction.findMany({
-        where: {
-          userId: user.id,
-          date: { gte: start, lt: end },
-          ...(typeFilter === "INCOME" || typeFilter === "EXPENSE" ? { type: typeFilter } : {}),
-          ...(accountIdFilter ? { accountId: accountIdFilter } : {}),
-          ...(categoryIdFilter ? { categoryId: categoryIdFilter } : {}),
-          ...(q ? { memo: { contains: q, mode: "insensitive" as const } } : {}),
-        },
-        orderBy: { date: "desc" },
-        include: { account: true, category: true },
-      })
-    : [...monthTransactions].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  let filteredTransactions = [...monthTransactions].sort(
+    (a, b) => b.date.getTime() - a.date.getTime()
+  );
+
+  if (hasFilter) {
+    const filterWhere: Prisma.TransactionWhereInput = {
+      userId: user.id,
+      date: { gte: start, lt: end },
+    };
+    if (typeFilter === "INCOME" || typeFilter === "EXPENSE") {
+      filterWhere.type = typeFilter;
+    }
+    if (accountIdFilter) {
+      filterWhere.accountId = accountIdFilter;
+    }
+    if (categoryIdFilter) {
+      filterWhere.categoryId = categoryIdFilter;
+    }
+    if (q) {
+      filterWhere.memo = { contains: q, mode: "insensitive" };
+    }
+
+    filteredTransactions = await prisma.transaction.findMany({
+      where: filterWhere,
+      orderBy: { date: "desc" },
+      include: { account: true, category: true },
+    });
+  }
 
   const income = monthTransactions
     .filter((t) => t.type === "INCOME")

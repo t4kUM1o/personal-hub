@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
@@ -24,14 +25,22 @@ export async function GET(request: NextRequest) {
   const start = new Date(year, monthNum - 1, 1);
   const end = new Date(year, monthNum, 1);
 
-  const where = {
+  const where: Prisma.TransactionWhereInput = {
     userId: user.id,
     date: { gte: start, lt: end },
-    ...(type === "INCOME" || type === "EXPENSE" ? { type } : {}),
-    ...(accountId ? { accountId } : {}),
-    ...(categoryId ? { categoryId } : {}),
-    ...(q ? { memo: { contains: q, mode: "insensitive" as const } } : {}),
   };
+  if (type === "INCOME" || type === "EXPENSE") {
+    where.type = type;
+  }
+  if (accountId) {
+    where.accountId = accountId;
+  }
+  if (categoryId) {
+    where.categoryId = categoryId;
+  }
+  if (q) {
+    where.memo = { contains: q, mode: "insensitive" };
+  }
 
   const transactions = await prisma.transaction.findMany({
     where,
