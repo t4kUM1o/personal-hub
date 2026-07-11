@@ -34,7 +34,7 @@ export default async function PrivateLayout({
             ))}
             {user.role === "ADMIN" && (
               <Link
-                href="/admin/blog"
+                href="/admin"
                 className="text-gray-600 transition-colors hover:text-accent dark:text-gray-300"
               >
                 管理画面

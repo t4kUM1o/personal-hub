@@ -4,12 +4,14 @@ import { getSessionUser } from "@/lib/auth";
 import { LogoutButton } from "@/components/ui/LogoutButton";
 
 const ADMIN_NAV_ITEMS = [
+  { href: "/admin", label: "管理トップ" },
   { href: "/admin/blog", label: "ブログ管理" },
   { href: "/admin/users", label: "ユーザー管理" },
   { href: "/admin/analytics", label: "アクセス解析" },
   { href: "/admin/logs", label: "ログ管理" },
   { href: "/admin/media", label: "メディア管理" },
   { href: "/admin/system", label: "システム設定" },
+  { href: "/kakeibo", label: "家計簿" },
 ];
 
 // Admin層: ログイン必須 + role が ADMIN のユーザーのみ許可
