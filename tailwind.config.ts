@@ -5,6 +5,9 @@ const config: Config = {
   darkMode: "class",
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-display)"],
+      },
       colors: {
         // 仕様書: 白黒ベース + 青系アクセント
         accent: {
