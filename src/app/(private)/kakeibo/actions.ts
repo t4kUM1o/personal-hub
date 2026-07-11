@@ -90,6 +90,15 @@ export async function deleteTransaction(formData: FormData) {
   revalidatePath("/kakeibo");
 }
 
+export async function deleteTransactions(formData: FormData) {
+  const user = await requireUser();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return;
+
+  await prisma.transaction.deleteMany({ where: { id: { in: ids }, userId: user.id } });
+  revalidatePath("/kakeibo");
+}
+
 const ACCOUNT_TYPES = ["CASH", "BANK", "CREDIT_CARD", "E_MONEY"] as const;
 
 export async function createAccount(formData: FormData) {
@@ -200,7 +209,9 @@ export async function importTransactionsCsv(formData: FormData) {
     throw new Error("CSVファイルを選択してください");
   }
 
-  const text = await file.text();
+  // 自分でエクスポートしたCSVには文字コード対策のBOM(U+FEFF)が先頭に付いており、
+  // 除去しないとヘッダー1列目("日付")が正しく認識されず全行スキップされてしまう
+  const text = (await file.text()).replace(/^\uFEFF/, "");
   const { data, errors } = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: true,
@@ -228,9 +239,10 @@ export async function importTransactionsCsv(formData: FormData) {
   }
 
   const toCreate: Row[] = [];
-  let skippedCount = 0;
+  const skipReasons: string[] = [];
 
-  for (const row of data) {
+  data.forEach((row, index) => {
+    const rowNumber = index + 2; // 1行目はヘッダーなので+2
     const dateStr = row["日付"]?.trim();
     const typeStr = row["種別"]?.trim();
     const amountStr = row["金額"]?.trim();
@@ -241,23 +253,36 @@ export async function importTransactionsCsv(formData: FormData) {
     const type: "INCOME" | "EXPENSE" | null =
       typeStr === "収入" ? "INCOME" : typeStr === "支出" ? "EXPENSE" : null;
     const amount = Number(amountStr);
+    const date = dateStr ? new Date(dateStr) : null;
     const accountId = accountName ? accountByName.get(accountName) : undefined;
 
-    if (!dateStr || !type || !Number.isFinite(amount) || amount <= 0 || !accountId) {
-      skippedCount += 1;
-      continue;
+    if (!dateStr || !date || Number.isNaN(date.getTime())) {
+      skipReasons.push(`${rowNumber}行目: 日付「${dateStr || "(空欄)"}」を解釈できません`);
+      return;
+    }
+    if (!type) {
+      skipReasons.push(`${rowNumber}行目: 種別は「収入」か「支出」で入力してください`);
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      skipReasons.push(`${rowNumber}行目: 金額「${amountStr}」が不正です`);
+      return;
+    }
+    if (!accountName || !accountId) {
+      skipReasons.push(`${rowNumber}行目: 口座「${accountName || "(空欄)"}」が見つかりません`);
+      return;
     }
 
     toCreate.push({
       userId: user.id,
       type,
       amount: Math.round(amount),
-      date: new Date(dateStr),
+      date,
       accountId,
       categoryId: categoryName ? (categoryByName.get(categoryName) ?? null) : null,
       memo,
     });
-  }
+  });
 
   if (toCreate.length > 0) {
     await prisma.transaction.createMany({ data: toCreate });
@@ -267,7 +292,10 @@ export async function importTransactionsCsv(formData: FormData) {
 
   const params = new URLSearchParams({
     imported: String(toCreate.length),
-    skipped: String(skippedCount),
+    skipped: String(skipReasons.length),
   });
+  if (skipReasons.length > 0) {
+    params.set("reasons", skipReasons.join("|"));
+  }
   redirect(`/kakeibo/import?${params.toString()}`);
 }

@@ -4,10 +4,11 @@ import { importTransactionsCsv } from "../actions";
 export default async function ImportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ imported?: string; skipped?: string }>;
+  searchParams: Promise<{ imported?: string; skipped?: string; reasons?: string }>;
 }) {
-  const { imported, skipped } = await searchParams;
+  const { imported, skipped, reasons } = await searchParams;
   const skippedCount = Number(skipped ?? 0);
+  const reasonList = reasons ? reasons.split("|") : [];
 
   return (
     <main className="p-8">
@@ -17,10 +18,21 @@ export default async function ImportPage({
       <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">CSVインポート</h1>
 
       {imported !== undefined && (
-        <p className="mt-4 rounded-card bg-accent/10 px-3 py-2 text-sm text-accent">
+        <div className="mt-4 rounded-card bg-accent/10 px-3 py-2 text-sm text-accent">
           {imported}件を取り込みました
-          {skippedCount > 0 && `（${skippedCount}件は形式が不正、または口座名が一致せずスキップしました）`}
-        </p>
+          {skippedCount > 0 && `（${skippedCount}件はスキップしました）`}
+        </div>
+      )}
+
+      {reasonList.length > 0 && (
+        <div className="mt-2 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          <p className="font-medium">スキップした行の理由:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {reasonList.map((reason, i) => (
+              <li key={i}>{reason}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="mt-4 rounded-card border border-gray-200 p-4 text-sm text-gray-600 dark:border-gray-800 dark:text-gray-400">

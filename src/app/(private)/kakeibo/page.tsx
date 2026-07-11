@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { deleteTransaction } from "./actions";
-import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
+import { deleteTransaction, deleteTransactions } from "./actions";
 import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
+import { TransactionsTable } from "./TransactionsTable";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -348,76 +348,21 @@ export default async function KakeiboPage({
         )}
       </form>
 
-      <div className="mt-4 overflow-x-auto rounded-card border border-gray-200 dark:border-gray-800">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-            <tr>
-              <th className="px-4 py-2 font-medium">日付</th>
-              <th className="px-4 py-2 font-medium">種別</th>
-              <th className="px-4 py-2 font-medium">金額</th>
-              <th className="px-4 py-2 font-medium">口座</th>
-              <th className="px-4 py-2 font-medium">カテゴリ</th>
-              <th className="px-4 py-2 font-medium">メモ</th>
-              <th className="px-4 py-2 font-medium" />
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.map((t) => (
-              <tr key={t.id} className="border-t border-gray-100 dark:border-gray-800">
-                <td className="whitespace-nowrap px-4 py-2 text-gray-600 dark:text-gray-300">
-                  {t.date.toLocaleDateString("ja-JP")}
-                </td>
-                <td className="px-4 py-2">
-                  <span
-                    className={
-                      t.type === "INCOME"
-                        ? "rounded-card bg-accent/10 px-2 py-0.5 text-xs text-accent"
-                        : "rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                    }
-                  >
-                    {t.type === "INCOME" ? "収入" : "支出"}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-4 py-2 text-gray-800 dark:text-gray-200">
-                  {yen(t.amount)}
-                </td>
-                <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{t.account.name}</td>
-                <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
-                  {t.category?.name ?? "-"}
-                </td>
-                <td
-                  className="max-w-xs truncate px-4 py-2 text-gray-600 dark:text-gray-300"
-                  title={t.memo ?? undefined}
-                >
-                  {t.memo ?? "-"}
-                </td>
-                <td className="whitespace-nowrap px-4 py-2">
-                  <div className="flex gap-3">
-                    <Link href={`/kakeibo/${t.id}/edit`} className="text-accent hover:underline">
-                      編集
-                    </Link>
-                    <form action={deleteTransaction}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <ConfirmSubmitButton
-                        confirmMessage="この記録を削除しますか？"
-                        className="text-red-600 hover:underline dark:text-red-400"
-                      >
-                        削除
-                      </ConfirmSubmitButton>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredTransactions.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  {hasFilter ? "条件に一致する記録がありません" : "この月の記録はまだありません"}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="mt-4">
+        <TransactionsTable
+          transactions={filteredTransactions.map((t) => ({
+            id: t.id,
+            date: t.date.toISOString(),
+            type: t.type,
+            amount: t.amount,
+            accountName: t.account.name,
+            categoryName: t.category?.name ?? null,
+            memo: t.memo,
+          }))}
+          deleteTransaction={deleteTransaction}
+          deleteTransactions={deleteTransactions}
+          emptyMessage={hasFilter ? "条件に一致する記録がありません" : "この月の記録はまだありません"}
+        />
       </div>
     </main>
   );
