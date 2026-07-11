@@ -197,20 +197,20 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 // 記事エディタから画像をアップロードし、公開URLを返す。
 // file.type はクライアント側の自己申告なので完全には信頼できないが、
 // アップロードできるのは管理者(信頼済みユーザー)のみなので、この程度の検証に留めている。
-export async function uploadImage(formData: FormData): Promise<{ url: string }> {
+export async function uploadImage(formData: FormData): Promise<{ error?: string; url?: string }> {
   await requireAdmin();
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
-    throw new Error("ファイルが選択されていません");
+    return { error: "ファイルが選択されていません" };
   }
 
   const ext = ALLOWED_IMAGE_TYPES[file.type];
   if (!ext) {
-    throw new Error("対応していない画像形式です（jpg / png / webp / gif のみ）");
+    return { error: "対応していない画像形式です（jpg / png / webp / gif のみ）" };
   }
   if (file.size > MAX_IMAGE_SIZE) {
-    throw new Error("画像サイズは5MB以内にしてください");
+    return { error: "画像サイズは5MB以内にしてください" };
   }
 
   const uploadDir = path.join(process.cwd(), "uploads");

@@ -5,6 +5,7 @@ import { regenerateBackupCodes } from "./actions";
 
 export function RegenerateBackupCodesButton() {
   const [codes, setCodes] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleClick() {
@@ -12,11 +13,17 @@ export function RegenerateBackupCodesButton() {
       return;
     }
     setIsLoading(true);
-    try {
-      const result = await regenerateBackupCodes();
+    setError(null);
+
+    const result = await regenerateBackupCodes();
+    setIsLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    if (result.backupCodes) {
       setCodes(result.backupCodes);
-    } finally {
-      setIsLoading(false);
     }
   }
 
@@ -29,6 +36,7 @@ export function RegenerateBackupCodesButton() {
       >
         {isLoading ? "生成中..." : "バックアップコードを再生成"}
       </button>
+      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
       {codes && (
         <div className="mt-2 rounded-card border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
           <p className="text-xs font-medium text-red-700 dark:text-red-400">

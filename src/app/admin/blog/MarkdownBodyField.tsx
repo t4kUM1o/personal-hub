@@ -16,25 +16,25 @@ export function MarkdownBodyField({ defaultValue }: { defaultValue?: string }) {
     setError(null);
     setIsUploading(true);
 
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", file);
-      const result = await uploadImage(uploadFormData);
+    const uploadFormData = new FormData();
+    uploadFormData.append("file", file);
+    const result = await uploadImage(uploadFormData);
+    setIsUploading(false);
 
-      const markdown = `![${file.name}](${result.url})`;
-      const textarea = textareaRef.current;
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
 
-      if (textarea) {
-        const start = textarea.selectionStart ?? textarea.value.length;
-        const end = textarea.selectionEnd ?? textarea.value.length;
-        textarea.value = textarea.value.slice(0, start) + markdown + textarea.value.slice(end);
-        textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
-        textarea.focus();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "アップロードに失敗しました");
-    } finally {
-      setIsUploading(false);
+    const markdown = `![${file.name}](${result.url})`;
+    const textarea = textareaRef.current;
+
+    if (textarea) {
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? textarea.value.length;
+      textarea.value = textarea.value.slice(0, start) + markdown + textarea.value.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
+      textarea.focus();
     }
   }
 

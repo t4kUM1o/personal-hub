@@ -20,13 +20,15 @@ export function TwoFactorSetupForm({ secret, qrDataUrl }: { secret: string; qrDa
     formData.append("secret", secret);
     formData.append("code", code);
 
-    try {
-      const result = await confirmTwoFactorSetup(formData);
+    const result = await confirmTwoFactorSetup(formData);
+    setIsSubmitting(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    if (result.backupCodes) {
       setBackupCodes(result.backupCodes);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "設定に失敗しました");
-    } finally {
-      setIsSubmitting(false);
     }
   }
 

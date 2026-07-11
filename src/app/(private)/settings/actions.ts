@@ -16,17 +16,17 @@ async function requireUser() {
 
 export async function confirmTwoFactorSetup(
   formData: FormData
-): Promise<{ backupCodes: string[] }> {
+): Promise<{ error?: string; backupCodes?: string[] }> {
   const user = await requireUser();
 
   const secret = String(formData.get("secret") ?? "");
   const code = String(formData.get("code") ?? "").trim();
 
   if (!secret || !code) {
-    throw new Error("不正なリクエストです");
+    return { error: "不正なリクエストです" };
   }
   if (!verifyTotpCode(secret, code)) {
-    throw new Error("コードが正しくありません。もう一度お試しください");
+    return { error: "コードが正しくありません。もう一度お試しください" };
   }
 
   await prisma.user.update({
@@ -50,10 +50,10 @@ export async function disableTwoFactor(formData: FormData) {
   ]);
 }
 
-export async function regenerateBackupCodes(): Promise<{ backupCodes: string[] }> {
+export async function regenerateBackupCodes(): Promise<{ error?: string; backupCodes?: string[] }> {
   const user = await requireUser();
   if (!user.totpEnabled) {
-    throw new Error("2段階認証が有効になっていません");
+    return { error: "2段階認証が有効になっていません" };
   }
   return { backupCodes: await generateBackupCodes(user.id) };
 }
