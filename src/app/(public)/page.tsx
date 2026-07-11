@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { recordPageView } from "@/lib/analytics";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  await recordPageView("/");
+
   const recentPosts = await prisma.post.findMany({
     where: { status: "PUBLISHED" },
     orderBy: { publishedAt: "desc" },

@@ -5,13 +5,14 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [postStatusCounts, commentApprovalCounts, categoryCount, tagCount, userCount] =
+  const [postStatusCounts, commentApprovalCounts, categoryCount, tagCount, userCount, pageViewCount] =
     await Promise.all([
       prisma.post.groupBy({ by: ["status"], _count: true }),
       prisma.comment.groupBy({ by: ["approved"], _count: true }),
       prisma.category.count(),
       prisma.tag.count(),
       prisma.user.count(),
+      prisma.pageView.count(),
     ]);
 
   const countForStatus = (status: string) =>
@@ -27,7 +28,7 @@ export default async function AdminDashboardPage() {
     <main className="p-8">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">管理ダッシュボード</h1>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/admin/blog"
           className="rounded-card border border-gray-200 p-4 transition-colors hover:border-accent dark:border-gray-800"
@@ -59,6 +60,16 @@ export default async function AdminDashboardPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400">ユーザー</p>
           <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
             {userCount}人
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/analytics"
+          className="rounded-card border border-gray-200 p-4 transition-colors hover:border-accent dark:border-gray-800"
+        >
+          <p className="text-xs text-gray-500 dark:text-gray-400">累計ページビュー</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {pageViewCount.toLocaleString("ja-JP")}
           </p>
         </Link>
       </div>

@@ -4,6 +4,7 @@ import { verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, resetRateLimit } from "@/lib/rateLimit";
 import { createTwoFactorChallenge } from "@/lib/twoFactorChallenge";
+import { logAuditEvent } from "@/lib/auditLog";
 
 // bcryptで生成した形式のダミーハッシュ。
 // ユーザーが存在しない場合でも必ずbcrypt.compareを実行することで、
@@ -55,6 +56,12 @@ export async function POST(request: NextRequest) {
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
+    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+  });
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "login",
     ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
   });
 

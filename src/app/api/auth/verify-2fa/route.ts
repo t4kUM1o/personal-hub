@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { getTwoFactorChallengeUserId, deleteTwoFactorChallenge } from "@/lib/twoFactorChallenge";
 import { verifyTotpCode, decryptSecret } from "@/lib/totp";
 import { consumeBackupCode } from "@/lib/backupCodes";
+import { logAuditEvent } from "@/lib/auditLog";
 
 const TWO_FA_RATE_LIMIT = { maxAttempts: 8, windowMs: 15 * 60 * 1000 };
 
@@ -56,6 +57,13 @@ export async function POST(request: NextRequest) {
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
+    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+  });
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "login",
+    detail: "2段階認証",
     ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
   });
 

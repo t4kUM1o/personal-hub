@@ -4,6 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { renderMarkdownWithToc } from "@/lib/markdown";
 import { promoteScheduledPosts } from "@/lib/posts";
+import { recordPageView } from "@/lib/analytics";
 import { Breadcrumbs } from "@/components/blog/Breadcrumbs";
 import { PostList } from "@/components/blog/PostList";
 import { CommentForm } from "./CommentForm";
@@ -83,6 +84,8 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) {
     notFound();
   }
+
+  await recordPageView(`/blog/${post.slug}`);
 
   const [{ html, toc }, relatedPosts, comments] = await Promise.all([
     Promise.resolve(renderMarkdownWithToc(post.body)),

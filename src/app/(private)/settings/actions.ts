@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { verifyTotpCode, encryptSecret } from "@/lib/totp";
 import { generateBackupCodes } from "@/lib/backupCodes";
+import { logAuditEvent } from "@/lib/auditLog";
 
 async function requireUser() {
   const user = await getSessionUser();
@@ -34,6 +35,8 @@ export async function confirmTwoFactorSetup(
     data: { totpSecret: encryptSecret(secret), totpEnabled: true },
   });
 
+  await logAuditEvent({ userId: user.id, action: "2fa_enabled" });
+
   return { backupCodes: await generateBackupCodes(user.id) };
 }
 
@@ -48,6 +51,8 @@ export async function disableTwoFactor(formData: FormData) {
     }),
     prisma.backupCode.deleteMany({ where: { userId: user.id } }),
   ]);
+
+  await logAuditEvent({ userId: user.id, action: "2fa_disabled" });
 }
 
 export async function regenerateBackupCodes(): Promise<{ error?: string; backupCodes?: string[] }> {

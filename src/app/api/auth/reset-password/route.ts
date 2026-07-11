@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { consumePasswordResetToken } from "@/lib/passwordReset";
+import { logAuditEvent } from "@/lib/auditLog";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
       data: { revokedAt: new Date() },
     }),
   ]);
+
+  await logAuditEvent({
+    userId,
+    action: "password_reset",
+    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+  });
 
   return NextResponse.json({ ok: true });
 }

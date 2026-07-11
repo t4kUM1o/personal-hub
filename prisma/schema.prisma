@@ -30,6 +30,7 @@ model User {
   totpEnabled         Boolean               @default(false)
   backupCodes         BackupCode[]
   twoFactorChallenges TwoFactorChallenge[]
+  auditLogs           AuditLog[]
 }
 
 // JWTではなくDBで管理するセッション方式。
@@ -214,4 +215,28 @@ model Comment {
   createdAt  DateTime @default(now())
 
   @@index([postId])
+}
+
+// セキュリティに関わる操作の監査ログ(ログイン、パスワードリセット、2FA変更、ユーザー管理操作など)
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  detail    String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
+
+// 簡易アクセス解析用。個人を特定する情報は持たず、パスと時刻のみ記録する
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  createdAt DateTime @default(now())
+
+  @@index([path])
+  @@index([createdAt])
 }
