@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    volumes:
+      - personal-hub-uploads-data:/app/public/uploads
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
@@ -78,6 +80,8 @@ services:
 volumes:
   personal-hub-db-data:
     name: personal-hub-db-data
+  personal-hub-uploads-data:
+    name: personal-hub-uploads-data
 
 networks:
   personal-hub-network:

@@ -225,8 +225,8 @@ export async function importTransactionsCsv(formData: FormData) {
     prisma.account.findMany({ where: { userId: user.id } }),
     prisma.transactionCategory.findMany({ where: { userId: user.id } }),
   ]);
-  const accountByName = new Map(accounts.map((a) => [a.name, a.id]));
-  const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
+  const accountByName = new Map<string, string>(accounts.map((a) => [a.name, a.id]));
+  const categoryByName = new Map<string, string>(categories.map((c) => [c.name, c.id]));
 
   interface Row {
     userId: string;

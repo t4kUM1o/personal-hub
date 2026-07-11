@@ -20,6 +20,8 @@
     "server-only": "^0.0.1",
     "nodemailer": "^6.9.16",
     "marked": "^15.0.0",
+    "marked-highlight": "^2.2.1",
+    "highlight.js": "^11.10.0",
     "isomorphic-dompurify": "^2.19.0",
     "recharts": "^3.0.0",
     "papaparse": "^5.4.1"

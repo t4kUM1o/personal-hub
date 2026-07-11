@@ -1,13 +1,29 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { PostList } from "@/components/blog/PostList";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
-// (ビルド時点ではまだDATABASE_URLが渡っていないため、静的生成しようとすると失敗する)
 export const dynamic = "force-dynamic";
 
-export default async function BlogPage() {
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+
+  const where: Prisma.PostWhereInput = { status: "PUBLISHED" };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { excerpt: { contains: q, mode: "insensitive" } },
+      { body: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
   const posts = await prisma.post.findMany({
-    where: { status: "PUBLISHED" },
+    where,
     orderBy: { publishedAt: "desc" },
     include: { category: true, tags: { include: { tag: true } } },
   });
@@ -16,37 +32,31 @@ export default async function BlogPage() {
     <main className="mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ブログ</h1>
 
-      <ul className="mt-8 space-y-8">
-        {posts.map((post) => (
-          <li key={post.id}>
-            <Link href={`/blog/${post.slug}`} className="group block">
-              <p className="text-xs text-gray-400">
-                {post.publishedAt?.toLocaleDateString("ja-JP")}
-                {post.category && <span className="ml-2 text-accent">{post.category.name}</span>}
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-gray-900 group-hover:text-accent dark:text-gray-100">
-                {post.title}
-              </h2>
-              {post.excerpt && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{post.excerpt}</p>
-              )}
-              {post.tags.length > 0 && (
-                <p className="mt-2 flex flex-wrap gap-2">
-                  {post.tags.map(({ tag }) => (
-                    <span
-                      key={tag.id}
-                      className="rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                    >
-                      #{tag.name}
-                    </span>
-                  ))}
-                </p>
-              )}
-            </Link>
-          </li>
-        ))}
-        {posts.length === 0 && <p className="text-gray-400">まだ記事がありません</p>}
-      </ul>
+      <form method="GET" className="mt-6 flex gap-2">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="記事を検索"
+          className="flex-1 rounded-card border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-gray-700 dark:bg-gray-900"
+        />
+        <button
+          type="submit"
+          className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+        >
+          検索
+        </button>
+        {q && (
+          <Link
+            href="/blog"
+            className="flex items-center px-2 text-sm text-gray-500 hover:underline dark:text-gray-400"
+          >
+            クリア
+          </Link>
+        )}
+      </form>
+
+      <PostList posts={posts} />
     </main>
   );
 }

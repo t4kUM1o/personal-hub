@@ -9,3 +9,5 @@ Disallow: /ai-chat
 Disallow: /settings
 Disallow: /api
 Allow: /
+
+Sitemap: /sitemap.xml

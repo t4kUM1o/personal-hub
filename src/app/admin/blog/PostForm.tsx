@@ -1,4 +1,5 @@
 import type { Category, Tag, Post, PostTag } from "@prisma/client";
+import { MarkdownBodyField } from "./MarkdownBodyField";
 
 interface PostFormProps {
   action: (formData: FormData) => void | Promise<void>;
@@ -61,16 +62,7 @@ export function PostForm({ action, categories, tags, submitLabel, post }: PostFo
         </div>
       </fieldset>
 
-      <label className="block text-sm text-gray-600 dark:text-gray-400">
-        本文（Markdown）
-        <textarea
-          name="body"
-          required
-          rows={16}
-          defaultValue={post?.body}
-          className={`${inputClass} font-mono`}
-        />
-      </label>
+      <MarkdownBodyField defaultValue={post?.body} />
 
       <fieldset className="block text-sm text-gray-600 dark:text-gray-400">
         <legend className="mb-1">公開状態</legend>
