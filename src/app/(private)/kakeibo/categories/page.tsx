@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { createCategory, deleteCategory } from "../actions";
+import { createCategory, deleteCategory, setBudget, deleteBudget } from "../actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
@@ -17,7 +17,7 @@ export default async function KakeiboCategoriesPage() {
   const categories = await prisma.transactionCategory.findMany({
     where: { userId: user.id },
     orderBy: { name: "asc" },
-    include: { _count: { select: { transactions: true } } },
+    include: { _count: { select: { transactions: true } }, budget: true },
   });
 
   const expense = categories.filter((c) => c.type === "EXPENSE");
@@ -55,21 +55,55 @@ export default async function KakeiboCategoriesPage() {
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         <div>
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">支出カテゴリ</h2>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            支出カテゴリ（月の予算を設定できます）
+          </h2>
           <ul className="mt-2 divide-y divide-gray-100 rounded-card border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             {expense.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                <span className="text-gray-700 dark:text-gray-300">
-                  {c.name} <span className="text-gray-400">({c._count.transactions}件)</span>
-                </span>
-                <form action={deleteCategory}>
-                  <input type="hidden" name="id" value={c.id} />
-                  <ConfirmSubmitButton
-                    confirmMessage={`「${c.name}」を削除しますか？`}
-                    className="text-red-600 hover:underline dark:text-red-400"
+              <li key={c.id} className="px-4 py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {c.name} <span className="text-gray-400">({c._count.transactions}件)</span>
+                  </span>
+                  <form action={deleteCategory}>
+                    <input type="hidden" name="id" value={c.id} />
+                    <ConfirmSubmitButton
+                      confirmMessage={`「${c.name}」を削除しますか？`}
+                      className="text-red-600 hover:underline dark:text-red-400"
+                    >
+                      削除
+                    </ConfirmSubmitButton>
+                  </form>
+                </div>
+                <form action={setBudget} className="mt-2 flex items-center gap-2">
+                  <input type="hidden" name="categoryId" value={c.id} />
+                  <span className="text-xs text-gray-400">月の予算 ¥</span>
+                  <input
+                    type="number"
+                    name="monthlyAmount"
+                    min={1}
+                    step={1}
+                    defaultValue={c.budget?.monthlyAmount ?? ""}
+                    placeholder="未設定"
+                    className="w-28 rounded-card border border-gray-300 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-card bg-gray-100 px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
-                    削除
-                  </ConfirmSubmitButton>
+                    保存
+                  </button>
+                  {c.budget && (
+                    <form action={deleteBudget}>
+                      <input type="hidden" name="categoryId" value={c.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-red-600 hover:underline dark:text-red-400"
+                      >
+                        予算解除
+                      </button>
+                    </form>
+                  )}
                 </form>
               </li>
             ))}

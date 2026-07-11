@@ -25,6 +25,7 @@ model User {
   accounts            Account[]
   transactionCategories TransactionCategory[]
   transactions        Transaction[]
+  budgets             Budget[]
 }
 
 // JWTではなくDBで管理するセッション方式。
@@ -138,6 +139,7 @@ model TransactionCategory {
   type         TransactionType
   createdAt    DateTime        @default(now())
   transactions Transaction[]
+  budget       Budget?
 
   @@unique([userId, name, type])
 }
@@ -158,4 +160,16 @@ model Transaction {
   updatedAt  DateTime             @updatedAt
 
   @@index([userId, date])
+}
+
+// カテゴリごとの月次予算(毎月繰り返し適用される想定。特定の月だけの予算は今回のスコープ外)
+model Budget {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId    String              @unique
+  category      TransactionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  monthlyAmount Int
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 }

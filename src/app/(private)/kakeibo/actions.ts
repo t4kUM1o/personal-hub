@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import Papa from "papaparse";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
@@ -148,4 +149,125 @@ export async function deleteCategory(formData: FormData) {
   // categoryId は Transaction 側で optional なので、削除すると該当取引は「未分類」になる
   await prisma.transactionCategory.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/kakeibo/categories");
+}
+
+export async function setBudget(formData: FormData) {
+  const user = await requireUser();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  const amountStr = String(formData.get("monthlyAmount") ?? "");
+  const amount = Number(amountStr);
+
+  if (!categoryId || !Number.isFinite(amount) || amount <= 0) {
+    throw new Error("予算額は1円以上の数値で入力してください");
+  }
+
+  // 自分のカテゴリであることを確認してから作成/更新する
+  const category = await prisma.transactionCategory.findFirst({
+    where: { id: categoryId, userId: user.id },
+  });
+  if (!category) {
+    throw new Error("対象のカテゴリが見つかりません");
+  }
+
+  await prisma.budget.upsert({
+    where: { categoryId },
+    create: { userId: user.id, categoryId, monthlyAmount: Math.round(amount) },
+    update: { monthlyAmount: Math.round(amount) },
+  });
+
+  revalidatePath("/kakeibo/categories");
+  revalidatePath("/kakeibo");
+}
+
+export async function deleteBudget(formData: FormData) {
+  const user = await requireUser();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  if (!categoryId) return;
+
+  await prisma.budget.deleteMany({
+    where: { categoryId, category: { userId: user.id } },
+  });
+
+  revalidatePath("/kakeibo/categories");
+  revalidatePath("/kakeibo");
+}
+
+export async function importTransactionsCsv(formData: FormData) {
+  const user = await requireUser();
+  const file = formData.get("file");
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("CSVファイルを選択してください");
+  }
+
+  const text = await file.text();
+  const { data, errors } = Papa.parse<Record<string, string>>(text, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (errors.length > 0) {
+    throw new Error(`CSVの解析に失敗しました: ${errors[0].message}`);
+  }
+
+  const [accounts, categories] = await Promise.all([
+    prisma.account.findMany({ where: { userId: user.id } }),
+    prisma.transactionCategory.findMany({ where: { userId: user.id } }),
+  ]);
+  const accountByName = new Map(accounts.map((a) => [a.name, a.id]));
+  const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
+
+  interface Row {
+    userId: string;
+    type: "INCOME" | "EXPENSE";
+    amount: number;
+    date: Date;
+    accountId: string;
+    categoryId: string | null;
+    memo: string | null;
+  }
+
+  const toCreate: Row[] = [];
+  let skippedCount = 0;
+
+  for (const row of data) {
+    const dateStr = row["日付"]?.trim();
+    const typeStr = row["種別"]?.trim();
+    const amountStr = row["金額"]?.trim();
+    const accountName = row["口座"]?.trim();
+    const categoryName = row["カテゴリ"]?.trim();
+    const memo = row["メモ"]?.trim() || null;
+
+    const type: "INCOME" | "EXPENSE" | null =
+      typeStr === "収入" ? "INCOME" : typeStr === "支出" ? "EXPENSE" : null;
+    const amount = Number(amountStr);
+    const accountId = accountName ? accountByName.get(accountName) : undefined;
+
+    if (!dateStr || !type || !Number.isFinite(amount) || amount <= 0 || !accountId) {
+      skippedCount += 1;
+      continue;
+    }
+
+    toCreate.push({
+      userId: user.id,
+      type,
+      amount: Math.round(amount),
+      date: new Date(dateStr),
+      accountId,
+      categoryId: categoryName ? (categoryByName.get(categoryName) ?? null) : null,
+      memo,
+    });
+  }
+
+  if (toCreate.length > 0) {
+    await prisma.transaction.createMany({ data: toCreate });
+  }
+
+  revalidatePath("/kakeibo");
+
+  const params = new URLSearchParams({
+    imported: String(toCreate.length),
+    skipped: String(skippedCount),
+  });
+  redirect(`/kakeibo/import?${params.toString()}`);
 }
