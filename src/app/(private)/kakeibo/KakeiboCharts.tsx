@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   PieChart,
   Pie,
@@ -65,12 +66,22 @@ export function CategoryBreakdownChart({ data }: { data: CategoryBreakdownItem[]
 }
 
 interface MonthlyTrendItem {
-  month: string;
+  month: string; // 表示用ラベル (例: "7月")
+  key: string; // 遷移先 "YYYY-MM"
   収入: number;
   支出: number;
 }
 
 export function MonthlyTrendChart({ data }: { data: MonthlyTrendItem[] }) {
+  const router = useRouter();
+
+  function handleDoubleClick(bar: { payload?: MonthlyTrendItem }) {
+    const key = bar?.payload?.key;
+    if (key) {
+      router.push(`/kakeibo?month=${key}`);
+    }
+  }
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data}>
@@ -82,8 +93,20 @@ export function MonthlyTrendChart({ data }: { data: MonthlyTrendItem[] }) {
         />
         <Tooltip formatter={formatYen} />
         <Legend />
-        <Bar dataKey="収入" fill="#2563eb" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="支出" fill="#f97316" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="収入"
+          fill="#2563eb"
+          radius={[4, 4, 0, 0]}
+          onDoubleClick={handleDoubleClick}
+          style={{ cursor: "pointer" }}
+        />
+        <Bar
+          dataKey="支出"
+          fill="#f97316"
+          radius={[4, 4, 0, 0]}
+          onDoubleClick={handleDoubleClick}
+          style={{ cursor: "pointer" }}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

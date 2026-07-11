@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { deleteTransaction, deleteTransactions } from "./actions";
 import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 import { TransactionsTable } from "./TransactionsTable";
+import { MonthPicker } from "./MonthPicker";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ async function getMonthlyTrend(userId: string, endYear: number, endMonth: number
 
   return Array.from(buckets.entries()).map(([key, v]) => {
     const monthNum = Number(key.split("-")[1]);
-    return { month: `${monthNum}月`, 収入: v.income, 支出: v.expense };
+    return { month: `${monthNum}月`, key, 収入: v.income, 支出: v.expense };
   });
 }
 
@@ -206,7 +207,7 @@ export default async function KakeiboPage({
         >
           ← 前月
         </Link>
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{label}</h2>
+        <MonthPicker value={current} label={label} />
         <Link
           href={`/kakeibo?month=${next}`}
           className="text-sm text-gray-500 hover:underline dark:text-gray-400"
