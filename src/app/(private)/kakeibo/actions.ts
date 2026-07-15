@@ -105,16 +105,57 @@ export async function createAccount(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "CASH");
+  const closingDayStr = String(formData.get("closingDay") ?? "");
+  const paymentDayStr = String(formData.get("paymentDay") ?? "");
+  const paymentMonthOffsetStr = String(formData.get("paymentMonthOffset") ?? "1");
 
   if (!name || !ACCOUNT_TYPES.includes(type as (typeof ACCOUNT_TYPES)[number])) {
     throw new Error("入力内容を確認してください");
   }
 
+  // 1-31の範囲に丸める(範囲外は無効な値として弾くのではなく安全側に丸める)
+  const closingDay = closingDayStr ? Math.min(31, Math.max(1, Number(closingDayStr) || 1)) : null;
+  const paymentDay = paymentDayStr ? Math.min(31, Math.max(1, Number(paymentDayStr) || 1)) : null;
+  const paymentMonthOffset = Math.min(3, Math.max(0, Number(paymentMonthOffsetStr) || 1));
+
   await prisma.account.create({
-    data: { userId: user.id, name, type: type as (typeof ACCOUNT_TYPES)[number] },
+    data: {
+      userId: user.id,
+      name,
+      type: type as (typeof ACCOUNT_TYPES)[number],
+      closingDay,
+      paymentDay,
+      paymentMonthOffset: closingDay || paymentDay ? paymentMonthOffset : null,
+    },
   });
 
   revalidatePath("/kakeibo/accounts");
+}
+
+export async function updateAccountBilling(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const closingDayStr = String(formData.get("closingDay") ?? "");
+  const paymentDayStr = String(formData.get("paymentDay") ?? "");
+  const paymentMonthOffsetStr = String(formData.get("paymentMonthOffset") ?? "1");
+
+  if (!id) return;
+
+  const closingDay = closingDayStr ? Math.min(31, Math.max(1, Number(closingDayStr) || 1)) : null;
+  const paymentDay = paymentDayStr ? Math.min(31, Math.max(1, Number(paymentDayStr) || 1)) : null;
+  const paymentMonthOffset = Math.min(3, Math.max(0, Number(paymentMonthOffsetStr) || 1));
+
+  await prisma.account.updateMany({
+    where: { id, userId: user.id },
+    data: {
+      closingDay,
+      paymentDay,
+      paymentMonthOffset: closingDay || paymentDay ? paymentMonthOffset : null,
+    },
+  });
+
+  revalidatePath("/kakeibo/accounts");
+  revalidatePath("/kakeibo");
 }
 
 export async function deleteAccount(formData: FormData) {
