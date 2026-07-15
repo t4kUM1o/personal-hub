@@ -9,6 +9,7 @@ import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
 import { getAccountBalances } from "@/lib/accountBalances";
 import { processDueSubscriptions } from "@/lib/subscriptions";
+import { getUpcomingPayments } from "@/lib/upcomingPayments";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -100,7 +101,8 @@ export default async function KakeiboPage({
   } = await searchParams;
   const { year, month: monthNum, start, end, label, current, prev, next } = getMonthRange(month);
 
-  const [accounts, categories, monthTransactions, accountBalances, quickEntries] = await Promise.all([
+  const [accounts, categories, monthTransactions, accountBalances, quickEntries, upcomingPayments] =
+    await Promise.all([
     prisma.account.findMany({ where: { userId: user.id }, orderBy: { name: "asc" } }),
     prisma.transactionCategory.findMany({
       where: { userId: user.id },
@@ -113,6 +115,7 @@ export default async function KakeiboPage({
     }),
     getAccountBalances(user.id, end),
     prisma.quickEntry.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
+    getUpcomingPayments(user.id),
   ]);
 
   // フィルターは一覧表示だけに効かせる。合計カード・グラフは常に月全体の値のまま。
@@ -230,6 +233,9 @@ export default async function KakeiboPage({
         <Link href="/kakeibo/subscriptions" className="text-accent hover:underline">
           サブスク管理
         </Link>
+        <Link href="/kakeibo/upcoming" className="text-accent hover:underline">
+          引き落とし予定
+        </Link>
         <Link href="/kakeibo/import" className="text-accent hover:underline">
           CSVインポート
         </Link>
@@ -310,6 +316,32 @@ export default async function KakeiboPage({
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {upcomingPayments.length > 0 && (
+        <div className="mt-6 rounded-card border border-gray-200 p-4 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              直近の引き落とし・支払い予定
+            </h3>
+            <Link href="/kakeibo/upcoming" className="text-xs text-accent hover:underline">
+              すべて見る →
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {upcomingPayments.slice(0, 3).map((item, i) => (
+              <li key={i} className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-300">
+                  {item.date.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}{" "}
+                  {item.label}
+                </span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {yen(item.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
