@@ -8,6 +8,7 @@ import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
 import { getAccountBalances } from "@/lib/accountBalances";
+import { processDueSubscriptions } from "@/lib/subscriptions";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -86,6 +87,9 @@ export default async function KakeiboPage({
   if (!user) {
     redirect("/login");
   }
+
+  // サブスクの請求日が来ていれば、ここで取引を作って次回請求日を繰り上げる
+  await processDueSubscriptions(user.id);
 
   const {
     month,
@@ -222,6 +226,9 @@ export default async function KakeiboPage({
         </Link>
         <Link href="/kakeibo/transfer" className="text-accent hover:underline">
           口座間の振替
+        </Link>
+        <Link href="/kakeibo/subscriptions" className="text-accent hover:underline">
+          サブスク管理
         </Link>
         <Link href="/kakeibo/import" className="text-accent hover:underline">
           CSVインポート

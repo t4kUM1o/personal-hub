@@ -27,6 +27,7 @@ model User {
   transactions        Transaction[]
   budgets             Budget[]
   quickEntries        QuickEntry[]
+  subscriptions       Subscription[]
   totpSecret          String?
   totpEnabled         Boolean               @default(false)
   backupCodes         BackupCode[]
@@ -140,6 +141,7 @@ model Account {
   paymentMonthOffset Int? // 締め日から何ヶ月後に引き落としか (通常1=翌月)
   initialBalance     Int           @default(0) // 記録を始めた時点の残高(現金・銀行・電子マネー用)
   quickEntries       QuickEntry[]
+  subscriptions      Subscription[]
 
   @@unique([userId, name])
 }
@@ -155,6 +157,7 @@ model TransactionCategory {
   transactions Transaction[]
   budget       Budget?
   quickEntries QuickEntry[]
+  subscriptions Subscription[]
 
   @@unique([userId, name, type])
 }
@@ -264,6 +267,32 @@ model QuickEntry {
   category   TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   memo       String?
   createdAt  DateTime            @default(now())
+
+  @@index([userId])
+}
+
+enum SubscriptionInterval {
+  MONTHLY
+  YEARLY
+}
+
+// サブスク・固定費の登録。次回請求日が来ると自動的にTransactionを作り、次回請求日を繰り上げる
+model Subscription {
+  id            String               @id @default(cuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  amount        Int
+  interval      SubscriptionInterval
+  billingDay    Int // 毎月/毎年の請求日 (1-31)
+  nextBillingAt DateTime
+  accountId     String
+  account       Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  active        Boolean              @default(true)
+  memo          String?
+  createdAt     DateTime             @default(now())
 
   @@index([userId])
 }

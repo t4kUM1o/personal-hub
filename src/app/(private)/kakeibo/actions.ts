@@ -602,3 +602,61 @@ export async function runQuickEntry(formData: FormData) {
 
   revalidatePath("/kakeibo");
 }
+
+export async function createSubscription(formData: FormData) {
+  const user = await requireUser();
+  const name = String(formData.get("name") ?? "").trim();
+  const amount = parseAmount(formData.get("amount"));
+  const interval = formData.get("interval") === "YEARLY" ? "YEARLY" : "MONTHLY";
+  const nextBillingAtStr = String(formData.get("nextBillingAt") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  const categoryId = String(formData.get("categoryId") ?? "") || null;
+  const memo = String(formData.get("memo") ?? "").trim() || null;
+
+  if (!name || !accountId || !nextBillingAtStr) {
+    throw new Error("名前・口座・次回請求日は必須です");
+  }
+
+  const nextBillingAt = new Date(nextBillingAtStr);
+  if (Number.isNaN(nextBillingAt.getTime())) {
+    throw new Error("次回請求日が不正です");
+  }
+  const billingDay = nextBillingAt.getDate();
+
+  await prisma.subscription.create({
+    data: {
+      userId: user.id,
+      name,
+      amount,
+      interval,
+      billingDay,
+      nextBillingAt,
+      accountId,
+      categoryId,
+      memo,
+    },
+  });
+
+  revalidatePath("/kakeibo/subscriptions");
+}
+
+export async function toggleSubscriptionActive(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const sub = await prisma.subscription.findFirst({ where: { id, userId: user.id } });
+  if (!sub) return;
+
+  await prisma.subscription.update({ where: { id }, data: { active: !sub.active } });
+  revalidatePath("/kakeibo/subscriptions");
+}
+
+export async function deleteSubscription(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  await prisma.subscription.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/kakeibo/subscriptions");
+}
