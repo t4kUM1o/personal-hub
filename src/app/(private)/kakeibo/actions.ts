@@ -299,3 +299,105 @@ export async function importTransactionsCsv(formData: FormData) {
   }
   redirect(`/kakeibo/import?${params.toString()}`);
 }
+
+function decodeCsvBuffer(buffer: ArrayBuffer): string {
+  // PayPayなど日本のクレジットカード明細CSVはShift-JISで出力されることが多いため、
+  // まずUTF-8として厳密デコードを試み、失敗したらShift-JISとして読み直す
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder("shift_jis").decode(buffer);
+  }
+}
+
+export async function importPayPayCsv(formData: FormData) {
+  const user = await requireUser();
+
+  const file = formData.get("file");
+  const accountId = String(formData.get("accountId") ?? "");
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/kakeibo/import/paypay?error=${encodeURIComponent("CSVファイルを選択してください")}`);
+  }
+  if (!accountId) {
+    redirect(`/kakeibo/import/paypay?error=${encodeURIComponent("取り込み先の口座を選択してください")}`);
+  }
+
+  const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
+  if (!account) {
+    redirect(`/kakeibo/import/paypay?error=${encodeURIComponent("対象の口座が見つかりません")}`);
+  }
+
+  const buffer = await file.arrayBuffer();
+  const text = decodeCsvBuffer(buffer);
+
+  const { data, errors } = Papa.parse<Record<string, string>>(text, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (errors.length > 0) {
+    redirect(
+      `/kakeibo/import/paypay?error=${encodeURIComponent(`CSVの解析に失敗しました: ${errors[0].message}`)}`
+    );
+  }
+
+  interface Row {
+    userId: string;
+    type: "EXPENSE";
+    amount: number;
+    date: Date;
+    accountId: string;
+    categoryId: null;
+    memo: string | null;
+  }
+
+  const toCreate: Row[] = [];
+  const skipReasons: string[] = [];
+
+  data.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const dateStr = row["利用日/キャンセル日"]?.trim();
+    const storeName = row["利用店名・商品名"]?.trim();
+    const amountStr = (row["支払総額"]?.trim() || row["利用金額"]?.trim() || "").replace(/,/g, "");
+
+    const date = dateStr ? new Date(dateStr) : null;
+    const amount = Number(amountStr);
+
+    if (!dateStr || !date || Number.isNaN(date.getTime())) {
+      skipReasons.push(`${rowNumber}行目: 日付「${dateStr || "(空欄)"}」を解釈できません`);
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      skipReasons.push(
+        `${rowNumber}行目: 金額が0円以下、または解釈できません（キャンセル分の可能性）`
+      );
+      return;
+    }
+
+    toCreate.push({
+      userId: user.id,
+      type: "EXPENSE",
+      amount: Math.round(amount),
+      date,
+      accountId: account.id,
+      categoryId: null,
+      memo: storeName || null,
+    });
+  });
+
+  if (toCreate.length > 0) {
+    await prisma.transaction.createMany({ data: toCreate });
+  }
+
+  revalidatePath("/kakeibo");
+
+  const params = new URLSearchParams({
+    imported: String(toCreate.length),
+    skipped: String(skipReasons.length),
+  });
+  if (skipReasons.length > 0) {
+    params.set("reasons", skipReasons.join("|"));
+  }
+  redirect(`/kakeibo/import/paypay?${params.toString()}`);
+}

@@ -195,6 +195,9 @@ export default async function KakeiboPage({
         <Link href="/kakeibo/import" className="text-accent hover:underline">
           CSVインポート
         </Link>
+        <Link href="/kakeibo/import/paypay" className="text-accent hover:underline">
+          PayPay明細を取り込む
+        </Link>
         <a href={`/api/kakeibo/export?${exportParams.toString()}`} className="text-accent hover:underline">
           CSVエクスポート
         </a>
