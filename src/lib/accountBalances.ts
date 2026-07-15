@@ -12,7 +12,10 @@ export interface AccountBalanceInfo {
   billing: (BillingCycle & { total: number }) | null;
 }
 
-export async function getAccountBalances(userId: string): Promise<AccountBalanceInfo[]> {
+export async function getAccountBalances(
+  userId: string,
+  asOfExclusiveEnd?: Date
+): Promise<AccountBalanceInfo[]> {
   const accounts = await prisma.account.findMany({
     where: { userId },
     orderBy: { name: "asc" },
@@ -22,6 +25,7 @@ export async function getAccountBalances(userId: string): Promise<AccountBalance
 
   for (const a of accounts) {
     if (a.type === "CREDIT_CARD") {
+      // クレジットカードの請求サイクルは常に「今」基準(月をさかのぼって表示する対象外)
       let billing: (BillingCycle & { total: number }) | null = null;
 
       if (a.closingDay && a.paymentDay) {
@@ -39,13 +43,22 @@ export async function getAccountBalances(userId: string): Promise<AccountBalance
 
       results.push({ id: a.id, name: a.name, type: a.type, balance: null, billing });
     } else {
+      const dateFilter = asOfExclusiveEnd ? { lt: asOfExclusiveEnd } : undefined;
       const [incomeSum, expenseSum] = await Promise.all([
         prisma.transaction.aggregate({
-          where: { accountId: a.id, type: "INCOME" },
+          where: {
+            accountId: a.id,
+            type: "INCOME",
+            ...(dateFilter ? { date: dateFilter } : {}),
+          },
           _sum: { amount: true },
         }),
         prisma.transaction.aggregate({
-          where: { accountId: a.id, type: "EXPENSE" },
+          where: {
+            accountId: a.id,
+            type: "EXPENSE",
+            ...(dateFilter ? { date: dateFilter } : {}),
+          },
           _sum: { amount: true },
         }),
       ]);

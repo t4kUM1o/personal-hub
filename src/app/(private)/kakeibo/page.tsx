@@ -111,7 +111,7 @@ export default async function KakeiboPage({
       where: { userId: user.id, date: { gte: start, lt: end } },
       include: { account: true, category: true },
     }),
-    getAccountBalances(user.id),
+    getAccountBalances(user.id, end),
     prisma.quickEntry.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
   ]);
 
@@ -280,7 +280,9 @@ export default async function KakeiboPage({
 
       {accountBalances.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">口座残高</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            口座残高（{label}時点）
+          </h3>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {accountBalances.map((a) => (
               <Link
@@ -299,7 +301,7 @@ export default async function KakeiboPage({
                       {yen(a.billing.total)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {a.billing.paymentDate.toLocaleDateString("ja-JP")}引き落とし予定
+                      {a.billing.paymentDate.toLocaleDateString("ja-JP")}引き落とし予定（現在）
                     </p>
                   </>
                 ) : (
