@@ -26,6 +26,7 @@ model User {
   transactionCategories TransactionCategory[]
   transactions        Transaction[]
   budgets             Budget[]
+  quickEntries        QuickEntry[]
   totpSecret          String?
   totpEnabled         Boolean               @default(false)
   backupCodes         BackupCode[]
@@ -138,6 +139,7 @@ model Account {
   paymentDay         Int? // 引き落とし日 (1-31。同上)
   paymentMonthOffset Int? // 締め日から何ヶ月後に引き落としか (通常1=翌月)
   initialBalance     Int           @default(0) // 記録を始めた時点の残高(現金・銀行・電子マネー用)
+  quickEntries       QuickEntry[]
 
   @@unique([userId, name])
 }
@@ -152,6 +154,7 @@ model TransactionCategory {
   createdAt    DateTime        @default(now())
   transactions Transaction[]
   budget       Budget?
+  quickEntries QuickEntry[]
 
   @@unique([userId, name, type])
 }
@@ -243,4 +246,22 @@ model PageView {
 
   @@index([path])
   @@index([createdAt])
+}
+
+// よく使う入力をボタン化しておくためのプリセット(例: 「ポイ活 +100円」)
+model QuickEntry {
+  id         String              @id @default(cuid())
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String
+  type       TransactionType
+  amount     Int
+  accountId  String
+  account    Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  memo       String?
+  createdAt  DateTime            @default(now())
+
+  @@index([userId])
 }

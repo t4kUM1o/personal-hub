@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { deleteTransaction, deleteTransactions } from "./actions";
+import { deleteTransaction, deleteTransactions, runQuickEntry } from "./actions";
 import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
@@ -96,7 +96,7 @@ export default async function KakeiboPage({
   } = await searchParams;
   const { year, month: monthNum, start, end, label, current, prev, next } = getMonthRange(month);
 
-  const [accounts, categories, monthTransactions, accountBalances] = await Promise.all([
+  const [accounts, categories, monthTransactions, accountBalances, quickEntries] = await Promise.all([
     prisma.account.findMany({ where: { userId: user.id }, orderBy: { name: "asc" } }),
     prisma.transactionCategory.findMany({
       where: { userId: user.id },
@@ -108,6 +108,7 @@ export default async function KakeiboPage({
       include: { account: true, category: true },
     }),
     getAccountBalances(user.id),
+    prisma.quickEntry.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
   ]);
 
   // フィルターは一覧表示だけに効かせる。合計カード・グラフは常に月全体の値のまま。
@@ -187,12 +188,36 @@ export default async function KakeiboPage({
         </Link>
       </div>
 
+      {quickEntries.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {quickEntries.map((q) => (
+            <form key={q.id} action={runQuickEntry}>
+              <input type="hidden" name="id" value={q.id} />
+              <button
+                type="submit"
+                className={
+                  q.type === "INCOME"
+                    ? "rounded-card bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
+                    : "rounded-card bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                }
+              >
+                {q.label} {q.type === "INCOME" ? "+" : "-"}
+                {yen(q.amount)}
+              </button>
+            </form>
+          ))}
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-4 text-sm">
         <Link href="/kakeibo/accounts" className="text-accent hover:underline">
           口座管理
         </Link>
         <Link href="/kakeibo/categories" className="text-accent hover:underline">
           カテゴリ管理
+        </Link>
+        <Link href="/kakeibo/quick-entries" className="text-accent hover:underline">
+          クイック記録の設定
         </Link>
         <Link href="/kakeibo/import" className="text-accent hover:underline">
           CSVインポート

@@ -463,3 +463,56 @@ export async function importPayPayCsv(formData: FormData) {
   }
   redirect(`/kakeibo/import/paypay?${params.toString()}`);
 }
+
+export async function createQuickEntry(formData: FormData) {
+  const user = await requireUser();
+  const label = String(formData.get("label") ?? "").trim();
+  const type = formData.get("type") === "INCOME" ? "INCOME" : "EXPENSE";
+  const amount = parseAmount(formData.get("amount"));
+  const accountId = String(formData.get("accountId") ?? "");
+  const categoryId = String(formData.get("categoryId") ?? "") || null;
+  const memo = String(formData.get("memo") ?? "").trim() || label;
+
+  if (!label || !accountId) {
+    throw new Error("ボタン名と口座は必須です");
+  }
+
+  await prisma.quickEntry.create({
+    data: { userId: user.id, label, type, amount, accountId, categoryId, memo },
+  });
+
+  revalidatePath("/kakeibo/quick-entries");
+}
+
+export async function deleteQuickEntry(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  await prisma.quickEntry.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/kakeibo/quick-entries");
+}
+
+// クイック記録ボタン本体: 今日の日付でプリセット通りの取引を1件作る
+export async function runQuickEntry(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const preset = await prisma.quickEntry.findFirst({ where: { id, userId: user.id } });
+  if (!preset) return;
+
+  await prisma.transaction.create({
+    data: {
+      userId: user.id,
+      type: preset.type,
+      amount: preset.amount,
+      date: new Date(),
+      accountId: preset.accountId,
+      categoryId: preset.categoryId,
+      memo: preset.memo,
+    },
+  });
+
+  revalidatePath("/kakeibo");
+}
