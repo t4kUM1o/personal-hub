@@ -160,21 +160,23 @@ model TransactionCategory {
 }
 
 model Transaction {
-  id         String               @id @default(cuid())
-  userId     String
-  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       TransactionType
-  amount     Int // 円単位の整数(小数のない通貨なので浮動小数点誤差を避けるためInt)
-  date       DateTime
-  memo       String?
-  accountId  String
-  account    Account              @relation(fields: [accountId], references: [id])
-  categoryId String?
-  category   TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
+  id              String               @id @default(cuid())
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            TransactionType
+  amount          Int // 円単位の整数(小数のない通貨なので浮動小数点誤差を避けるためInt)
+  date            DateTime
+  memo            String?
+  accountId       String
+  account         Account              @relation(fields: [accountId], references: [id])
+  categoryId      String?
+  category        TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transferGroupId String? // 口座間の振替の場合、ペアとなる取引と共通のIDを持つ。nullなら通常の収支
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([userId, date])
+  @@index([transferGroupId])
 }
 
 // カテゴリごとの月次予算(毎月繰り返し適用される想定。特定の月だけの予算は今回のスコープ外)

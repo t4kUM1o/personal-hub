@@ -12,6 +12,7 @@ export interface TransactionRow {
   accountName: string;
   categoryName: string | null;
   memo: string | null;
+  isTransfer: boolean;
 }
 
 interface TransactionsTableProps {
@@ -119,12 +120,14 @@ export function TransactionsTable({
                 <td className="px-4 py-2">
                   <span
                     className={
-                      t.type === "INCOME"
-                        ? "rounded-card bg-accent/10 px-2 py-0.5 text-xs text-accent"
-                        : "rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                      t.isTransfer
+                        ? "rounded-card bg-blue-50 px-2 py-0.5 text-xs text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                        : t.type === "INCOME"
+                          ? "rounded-card bg-accent/10 px-2 py-0.5 text-xs text-accent"
+                          : "rounded-card bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400"
                     }
                   >
-                    {t.type === "INCOME" ? "収入" : "支出"}
+                    {t.isTransfer ? "振替" : t.type === "INCOME" ? "収入" : "支出"}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-gray-800 dark:text-gray-200">

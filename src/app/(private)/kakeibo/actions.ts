@@ -86,7 +86,18 @@ export async function deleteTransaction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await prisma.transaction.deleteMany({ where: { id, userId: user.id } });
+  const target = await prisma.transaction.findFirst({ where: { id, userId: user.id } });
+  if (!target) return;
+
+  if (target.transferGroupId) {
+    // 振替はペアで1組なので、まとめて消さないと片方だけ残高が合わなくなる
+    await prisma.transaction.deleteMany({
+      where: { userId: user.id, transferGroupId: target.transferGroupId },
+    });
+  } else {
+    await prisma.transaction.delete({ where: { id } });
+  }
+
   revalidatePath("/kakeibo");
 }
 
@@ -95,8 +106,83 @@ export async function deleteTransactions(formData: FormData) {
   const ids = formData.getAll("ids").map(String).filter(Boolean);
   if (ids.length === 0) return;
 
-  await prisma.transaction.deleteMany({ where: { id: { in: ids }, userId: user.id } });
+  const targets = await prisma.transaction.findMany({
+    where: { id: { in: ids }, userId: user.id },
+    select: { transferGroupId: true },
+  });
+  const transferGroupIds = targets
+    .map((t) => t.transferGroupId)
+    .filter((g): g is string => Boolean(g));
+
+  await prisma.transaction.deleteMany({
+    where: {
+      userId: user.id,
+      OR: [
+        { id: { in: ids } },
+        ...(transferGroupIds.length > 0 ? [{ transferGroupId: { in: transferGroupIds } }] : []),
+      ],
+    },
+  });
+
   revalidatePath("/kakeibo");
+}
+
+export async function createTransfer(formData: FormData) {
+  const user = await requireUser();
+
+  const fromAccountId = String(formData.get("fromAccountId") ?? "");
+  const toAccountId = String(formData.get("toAccountId") ?? "");
+  const amount = parseAmount(formData.get("amount"));
+  const dateStr = String(formData.get("date") ?? "");
+  const memo = String(formData.get("memo") ?? "").trim() || null;
+
+  if (!fromAccountId || !toAccountId || !dateStr) {
+    throw new Error("振替元・振替先・日付は必須です");
+  }
+  if (fromAccountId === toAccountId) {
+    throw new Error("振替元と振替先は別の口座を選んでください");
+  }
+
+  const [fromAccount, toAccount] = await Promise.all([
+    prisma.account.findFirst({ where: { id: fromAccountId, userId: user.id } }),
+    prisma.account.findFirst({ where: { id: toAccountId, userId: user.id } }),
+  ]);
+  if (!fromAccount || !toAccount) {
+    throw new Error("対象の口座が見つかりません");
+  }
+
+  const date = new Date(dateStr);
+  // 2件のペアを識別するための共通ID(Prismaのcuidと衝突しない程度にランダムであれば十分)
+  const transferGroupId = `xfer_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const noteSuffix = memo ? `（${memo}）` : "";
+
+  await prisma.$transaction([
+    prisma.transaction.create({
+      data: {
+        userId: user.id,
+        type: "EXPENSE",
+        amount,
+        date,
+        accountId: fromAccountId,
+        transferGroupId,
+        memo: `振替 → ${toAccount.name}${noteSuffix}`,
+      },
+    }),
+    prisma.transaction.create({
+      data: {
+        userId: user.id,
+        type: "INCOME",
+        amount,
+        date,
+        accountId: toAccountId,
+        transferGroupId,
+        memo: `振替 ← ${fromAccount.name}${noteSuffix}`,
+      },
+    }),
+  ]);
+
+  revalidatePath("/kakeibo");
+  redirect("/kakeibo");
 }
 
 const ACCOUNT_TYPES = ["CASH", "BANK", "CREDIT_CARD", "E_MONEY"] as const;

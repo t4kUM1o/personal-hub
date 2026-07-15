@@ -34,10 +34,10 @@ export default async function DashboardPage() {
     ]);
 
   const income = monthTransactions
-    .filter((t) => t.type === "INCOME")
+    .filter((t) => t.type === "INCOME" && !t.transferGroupId)
     .reduce((sum, t) => sum + t.amount, 0);
   const expense = monthTransactions
-    .filter((t) => t.type === "EXPENSE")
+    .filter((t) => t.type === "EXPENSE" && !t.transferGroupId)
     .reduce((sum, t) => sum + t.amount, 0);
 
   const countFor = (status: string) =>

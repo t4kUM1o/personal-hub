@@ -37,7 +37,7 @@ async function getMonthlyTrend(userId: string, endYear: number, endMonth: number
   const rangeEnd = new Date(endYear, endMonth, 1);
 
   const rows = await prisma.transaction.findMany({
-    where: { userId, date: { gte: rangeStart, lt: rangeEnd } },
+    where: { userId, date: { gte: rangeStart, lt: rangeEnd }, transferGroupId: null },
     select: { type: true, amount: true, date: true },
   });
 
@@ -143,17 +143,18 @@ export default async function KakeiboPage({
     });
   }
 
+  // 振替(口座間移動)は実際の収支ではないので、集計からは除外する
   const income = monthTransactions
-    .filter((t) => t.type === "INCOME")
+    .filter((t) => t.type === "INCOME" && !t.transferGroupId)
     .reduce((sum, t) => sum + t.amount, 0);
   const expense = monthTransactions
-    .filter((t) => t.type === "EXPENSE")
+    .filter((t) => t.type === "EXPENSE" && !t.transferGroupId)
     .reduce((sum, t) => sum + t.amount, 0);
 
   const categoryTotals = new Map<string, number>();
   const spentByCategoryId = new Map<string, number>();
   for (const t of monthTransactions) {
-    if (t.type !== "EXPENSE") continue;
+    if (t.type !== "EXPENSE" || t.transferGroupId) continue;
     const key = t.category?.name ?? "未分類";
     categoryTotals.set(key, (categoryTotals.get(key) ?? 0) + t.amount);
     if (t.categoryId) {
@@ -218,6 +219,9 @@ export default async function KakeiboPage({
         </Link>
         <Link href="/kakeibo/quick-entries" className="text-accent hover:underline">
           クイック記録の設定
+        </Link>
+        <Link href="/kakeibo/transfer" className="text-accent hover:underline">
+          口座間の振替
         </Link>
         <Link href="/kakeibo/import" className="text-accent hover:underline">
           CSVインポート
@@ -422,6 +426,7 @@ export default async function KakeiboPage({
             accountName: t.account.name,
             categoryName: t.category?.name ?? null,
             memo: t.memo,
+            isTransfer: Boolean(t.transferGroupId),
           }))}
           deleteTransaction={deleteTransaction}
           deleteTransactions={deleteTransactions}
