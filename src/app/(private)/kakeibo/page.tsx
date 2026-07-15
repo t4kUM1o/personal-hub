@@ -101,8 +101,15 @@ export default async function KakeiboPage({
   } = await searchParams;
   const { year, month: monthNum, start, end, label, current, prev, next } = getMonthRange(month);
 
-  const [accounts, categories, monthTransactions, accountBalances, quickEntries, upcomingPayments] =
-    await Promise.all([
+  const [
+    accounts,
+    categories,
+    monthTransactions,
+    accountBalances,
+    quickEntries,
+    upcomingPayments,
+    pendingSubscriptions,
+  ] = await Promise.all([
     prisma.account.findMany({ where: { userId: user.id }, orderBy: { name: "asc" } }),
     prisma.transactionCategory.findMany({
       where: { userId: user.id },
@@ -116,6 +123,11 @@ export default async function KakeiboPage({
     getAccountBalances(user.id, end),
     prisma.quickEntry.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     getUpcomingPayments(user.id),
+    // このページを開いた時点でprocessDueSubscriptionsが既に消化済みの請求を取引化しているので、
+    // ここに残っているのは「今月中に来る予定だが、まだ実際には支払われていない」ものだけになる
+    prisma.subscription.findMany({
+      where: { userId: user.id, active: true, nextBillingAt: { gte: start, lt: end } },
+    }),
   ]);
 
   // フィルターは一覧表示だけに効かせる。合計カード・グラフは常に月全体の値のまま。
@@ -157,6 +169,9 @@ export default async function KakeiboPage({
   const expense = monthTransactions
     .filter((t) => t.type === "EXPENSE" && !t.transferGroupId)
     .reduce((sum, t) => sum + t.amount, 0);
+
+  const pendingSubscriptionTotal = pendingSubscriptions.reduce((sum, s) => sum + s.amount, 0);
+  const expenseWithPendingSubscriptions = expense + pendingSubscriptionTotal;
 
   const categoryTotals = new Map<string, number>();
   const spentByCategoryId = new Map<string, number>();
@@ -271,6 +286,11 @@ export default async function KakeiboPage({
         <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
           <p className="text-xs text-gray-500 dark:text-gray-400">支出</p>
           <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{yen(expense)}</p>
+          {pendingSubscriptionTotal > 0 && (
+            <p className="mt-1 text-xs text-gray-400">
+              サブスク見込み含む: {yen(expenseWithPendingSubscriptions)}
+            </p>
+          )}
         </div>
         <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
           <p className="text-xs text-gray-500 dark:text-gray-400">差額</p>
