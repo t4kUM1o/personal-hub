@@ -108,6 +108,7 @@ export async function createAccount(formData: FormData) {
   const closingDayStr = String(formData.get("closingDay") ?? "");
   const paymentDayStr = String(formData.get("paymentDay") ?? "");
   const paymentMonthOffsetStr = String(formData.get("paymentMonthOffset") ?? "1");
+  const initialBalanceStr = String(formData.get("initialBalance") ?? "0");
 
   if (!name || !ACCOUNT_TYPES.includes(type as (typeof ACCOUNT_TYPES)[number])) {
     throw new Error("入力内容を確認してください");
@@ -117,6 +118,7 @@ export async function createAccount(formData: FormData) {
   const closingDay = closingDayStr ? Math.min(31, Math.max(1, Number(closingDayStr) || 1)) : null;
   const paymentDay = paymentDayStr ? Math.min(31, Math.max(1, Number(paymentDayStr) || 1)) : null;
   const paymentMonthOffset = Math.min(3, Math.max(0, Number(paymentMonthOffsetStr) || 1));
+  const initialBalance = Math.round(Number(initialBalanceStr) || 0);
 
   await prisma.account.create({
     data: {
@@ -126,10 +128,29 @@ export async function createAccount(formData: FormData) {
       closingDay,
       paymentDay,
       paymentMonthOffset: closingDay || paymentDay ? paymentMonthOffset : null,
+      initialBalance,
     },
   });
 
   revalidatePath("/kakeibo/accounts");
+}
+
+export async function updateAccountBalance(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const initialBalanceStr = String(formData.get("initialBalance") ?? "0");
+
+  if (!id) return;
+
+  const initialBalance = Math.round(Number(initialBalanceStr) || 0);
+
+  await prisma.account.updateMany({
+    where: { id, userId: user.id },
+    data: { initialBalance },
+  });
+
+  revalidatePath("/kakeibo/accounts");
+  revalidatePath("/kakeibo");
 }
 
 export async function updateAccountBilling(formData: FormData) {

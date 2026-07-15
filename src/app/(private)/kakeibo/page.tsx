@@ -7,6 +7,7 @@ import { deleteTransaction, deleteTransactions } from "./actions";
 import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
+import { getAccountBalances } from "@/lib/accountBalances";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -95,7 +96,7 @@ export default async function KakeiboPage({
   } = await searchParams;
   const { year, month: monthNum, start, end, label, current, prev, next } = getMonthRange(month);
 
-  const [accounts, categories, monthTransactions] = await Promise.all([
+  const [accounts, categories, monthTransactions, accountBalances] = await Promise.all([
     prisma.account.findMany({ where: { userId: user.id }, orderBy: { name: "asc" } }),
     prisma.transactionCategory.findMany({
       where: { userId: user.id },
@@ -106,6 +107,7 @@ export default async function KakeiboPage({
       where: { userId: user.id, date: { gte: start, lt: end } },
       include: { account: true, category: true },
     }),
+    getAccountBalances(user.id),
   ]);
 
   // フィルターは一覧表示だけに効かせる。合計カード・グラフは常に月全体の値のまま。
@@ -239,6 +241,39 @@ export default async function KakeiboPage({
           </p>
         </div>
       </div>
+
+      {accountBalances.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">口座残高</h3>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            {accountBalances.map((a) => (
+              <Link
+                key={a.id}
+                href="/kakeibo/accounts"
+                className="rounded-card border border-gray-200 p-3 transition-colors hover:border-accent dark:border-gray-800"
+              >
+                <p className="text-xs text-gray-500 dark:text-gray-400">{a.name}</p>
+                {a.balance !== null ? (
+                  <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {yen(a.balance)}
+                  </p>
+                ) : a.billing ? (
+                  <>
+                    <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {yen(a.billing.total)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {a.billing.paymentDate.toLocaleDateString("ja-JP")}引き落とし予定
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-400">締め日未設定</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {budgetedCategories.length > 0 && (
         <div className="mt-6 rounded-card border border-gray-200 p-4 dark:border-gray-800">

@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { createAccount, deleteAccount, updateAccountBilling } from "../actions";
+import { createAccount, deleteAccount, updateAccountBilling, updateAccountBalance } from "../actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
-import { getCurrentBillingCycle } from "@/lib/creditCardBilling";
+import { getAccountBalances } from "@/lib/accountBalances";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -25,36 +25,16 @@ export default async function AccountsPage() {
     redirect("/login");
   }
 
-  const accounts = await prisma.account.findMany({
-    where: { userId: user.id },
-    orderBy: { name: "asc" },
-    include: { _count: { select: { transactions: true } } },
-  });
+  const [accounts, balances] = await Promise.all([
+    prisma.account.findMany({
+      where: { userId: user.id },
+      orderBy: { name: "asc" },
+      include: { _count: { select: { transactions: true } } },
+    }),
+    getAccountBalances(user.id),
+  ]);
 
-  // クレジットカードで締め日/引き落とし日が設定済みの口座は、今回のサイクルの利用額を集計しておく
-  const billingInfoByAccountId = new Map<
-    string,
-    { cycleStart: Date; cycleEnd: Date; paymentDate: Date; total: number }
-  >();
-
-  for (const a of accounts) {
-    if (a.type !== "CREDIT_CARD" || !a.closingDay || !a.paymentDay) continue;
-
-    const cycle = getCurrentBillingCycle(a.closingDay, a.paymentDay, a.paymentMonthOffset ?? 1);
-    const sum = await prisma.transaction.aggregate({
-      where: {
-        accountId: a.id,
-        type: "EXPENSE",
-        date: { gte: cycle.cycleStart, lte: cycle.cycleEnd },
-      },
-      _sum: { amount: true },
-    });
-
-    billingInfoByAccountId.set(a.id, {
-      ...cycle,
-      total: sum._sum.amount ?? 0,
-    });
-  }
+  const balanceById = new Map(balances.map((b) => [b.id, b]));
 
   return (
     <main className="p-8">
@@ -82,6 +62,16 @@ export default async function AccountsPage() {
             <option value="E_MONEY">電子マネー</option>
           </select>
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          初期残高（記録を始める時点の残高。クレジットカードの場合は空欄でOK）
+        </label>
+        <input
+          type="number"
+          name="initialBalance"
+          placeholder="0"
+          className="w-32 rounded-card border border-gray-300 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900"
+        />
 
         <details className="text-xs text-gray-500 dark:text-gray-400">
           <summary className="cursor-pointer select-none">
@@ -137,7 +127,7 @@ export default async function AccountsPage() {
 
       <ul className="mt-6 max-w-md space-y-3">
         {accounts.map((a) => {
-          const billing = billingInfoByAccountId.get(a.id);
+          const info = balanceById.get(a.id);
           return (
             <li
               key={a.id}
@@ -161,26 +151,56 @@ export default async function AccountsPage() {
                 </form>
               </div>
 
+              {a.type !== "CREDIT_CARD" && (
+                <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    現在の残高:{" "}
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {yen(info?.balance ?? 0)}
+                    </span>
+                  </p>
+                  <form
+                    action={updateAccountBalance}
+                    className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    <input type="hidden" name="id" value={a.id} />
+                    <label className="flex items-center gap-1">
+                      初期残高
+                      <input
+                        type="number"
+                        name="initialBalance"
+                        defaultValue={a.initialBalance}
+                        className="w-24 rounded-card border border-gray-300 px-1.5 py-1 dark:border-gray-700 dark:bg-gray-900"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="rounded-card bg-gray-100 px-2 py-1 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      保存
+                    </button>
+                  </form>
+                </div>
+              )}
+
               {a.type === "CREDIT_CARD" && (
                 <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-                  {billing ? (
+                  {info?.billing ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      今回のご利用期間: {md(billing.cycleStart)}〜{md(billing.cycleEnd)}
+                      今回のご利用期間: {md(info.billing.cycleStart)}〜{md(info.billing.cycleEnd)}
                       　利用額:{" "}
                       <span className="font-medium text-gray-800 dark:text-gray-200">
-                        {yen(billing.total)}
+                        {yen(info.billing.total)}
                       </span>
                       <br />
                       次回引き落とし予定日:{" "}
                       <span className="font-medium text-gray-800 dark:text-gray-200">
-                        {billing.paymentDate.toLocaleDateString("ja-JP")}
+                        {info.billing.paymentDate.toLocaleDateString("ja-JP")}
                       </span>
                       （土日祝は翌平日に自動調整）
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-400">
-                      締め日・引き落とし日が未設定です
-                    </p>
+                    <p className="text-xs text-gray-400">締め日・引き落とし日が未設定です</p>
                   )}
 
                   <form
