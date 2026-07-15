@@ -79,6 +79,29 @@ export interface BillingCycle {
   paymentDate: Date;
 }
 
+function buildCycleFromEnd(
+  cycleEnd: Date,
+  closingDay: number,
+  paymentDay: number,
+  paymentMonthOffset: number
+): BillingCycle {
+  const cycleEndYear = cycleEnd.getFullYear();
+  const cycleEndMonth = cycleEnd.getMonth() + 1;
+  const prevMonth = cycleEndMonth === 1 ? 12 : cycleEndMonth - 1;
+  const prevYear = cycleEndMonth === 1 ? cycleEndYear - 1 : cycleEndYear;
+  const prevClosing = clampDay(prevYear, prevMonth, closingDay);
+  const cycleStart = new Date(prevClosing);
+  cycleStart.setDate(cycleStart.getDate() + 1);
+
+  const paymentMonthRaw = cycleEndMonth + paymentMonthOffset;
+  const paymentYear = cycleEndYear + Math.floor((paymentMonthRaw - 1) / 12);
+  const paymentMonth = ((paymentMonthRaw - 1) % 12) + 1;
+  const rawPaymentDate = clampDay(paymentYear, paymentMonth, paymentDay);
+  const paymentDate = nextBusinessDay(rawPaymentDate);
+
+  return { cycleStart, cycleEnd, paymentDate };
+}
+
 // referenceDate時点で「進行中、または締まったばかり」の請求サイクルを返す
 export function getCurrentBillingCycle(
   closingDay: number,
@@ -100,27 +123,26 @@ export function getCurrentBillingCycle(
     cycleEnd = clampDay(nextYear, nextMonth, closingDay);
   }
 
-  const cycleEndYear = cycleEnd.getFullYear();
-  const cycleEndMonth = cycleEnd.getMonth() + 1;
-  const prevMonth = cycleEndMonth === 1 ? 12 : cycleEndMonth - 1;
-  const prevYear = cycleEndMonth === 1 ? cycleEndYear - 1 : cycleEndYear;
-  const prevClosing = clampDay(prevYear, prevMonth, closingDay);
-  const cycleStart = new Date(prevClosing);
-  cycleStart.setDate(cycleStart.getDate() + 1);
+  return buildCycleFromEnd(cycleEnd, closingDay, paymentDay, paymentMonthOffset);
+}
 
-  const paymentMonthRaw = cycleEndMonth + paymentMonthOffset;
-  const paymentYear = cycleEndYear + Math.floor((paymentMonthRaw - 1) / 12);
-  const paymentMonth = ((paymentMonthRaw - 1) % 12) + 1;
-  const rawPaymentDate = clampDay(paymentYear, paymentMonth, paymentDay);
-  const paymentDate = nextBusinessDay(rawPaymentDate);
-
-  return { cycleStart, cycleEnd, paymentDate };
+// 2つの日付区間のうち、指定した年月と重なる日数を数える
+function daysOverlappingMonth(start: Date, end: Date, year: number, month1indexed: number): number {
+  const monthStart = new Date(year, month1indexed - 1, 1);
+  const monthEnd = new Date(year, month1indexed, 0);
+  const overlapStart = start > monthStart ? start : monthStart;
+  const overlapEnd = end < monthEnd ? end : monthEnd;
+  if (overlapStart > overlapEnd) return 0;
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  return Math.round((overlapEnd.getTime() - overlapStart.getTime()) / MS_PER_DAY) + 1;
 }
 
 // 家計簿ページの「表示中の月タブ」に対応するサイクルを返す。
-// 例: 締め日4日・引き落とし翌月5日のカードで6月タブを見ている場合、
-//     6/5〜7/4利用分(7/4締め)・8/5引き落としのサイクルを返す
-// (viewedMonthの"翌月"に締まるサイクル = viewedMonthを主な利用期間とするサイクル、という考え方)
+// 締め日が月の前半(例:4日)なら、翌月に締まるサイクルの方が表示月と多く重なる
+// (例: 6/5-7/4は6月に26日重なる)。締め日が月末付近(例:月末)なら、その月自体に
+// 締まるサイクルがまるごと表示月と重なる。どちらが正しいかは締め日次第で変わるため、
+// 「翌月に締まる候補」と「その月に締まる候補」の両方を計算し、表示月との重複日数が
+// 多い方を採用する(固定の閾値やオフセットを仮定しない、常に正しい判定方法)。
 export function getBillingCycleForMonth(
   closingDay: number,
   paymentDay: number,
@@ -128,19 +150,36 @@ export function getBillingCycleForMonth(
   viewedYear: number,
   viewedMonth: number // 1-indexed
 ): BillingCycle {
-  const closingMonth = viewedMonth === 12 ? 1 : viewedMonth + 1;
-  const closingYear = viewedMonth === 12 ? viewedYear + 1 : viewedYear;
-  const cycleEnd = clampDay(closingYear, closingMonth, closingDay);
+  const closingInThisMonth = clampDay(viewedYear, viewedMonth, closingDay);
+  const candidateThisMonth = buildCycleFromEnd(
+    closingInThisMonth,
+    closingDay,
+    paymentDay,
+    paymentMonthOffset
+  );
 
-  const prevClosing = clampDay(viewedYear, viewedMonth, closingDay);
-  const cycleStart = new Date(prevClosing);
-  cycleStart.setDate(cycleStart.getDate() + 1);
+  const nextMonth = viewedMonth === 12 ? 1 : viewedMonth + 1;
+  const nextYear = viewedMonth === 12 ? viewedYear + 1 : viewedYear;
+  const closingNextMonth = clampDay(nextYear, nextMonth, closingDay);
+  const candidateNextMonth = buildCycleFromEnd(
+    closingNextMonth,
+    closingDay,
+    paymentDay,
+    paymentMonthOffset
+  );
 
-  const paymentMonthRaw = closingMonth + paymentMonthOffset;
-  const paymentYear = closingYear + Math.floor((paymentMonthRaw - 1) / 12);
-  const paymentMonth = ((paymentMonthRaw - 1) % 12) + 1;
-  const rawPaymentDate = clampDay(paymentYear, paymentMonth, paymentDay);
-  const paymentDate = nextBusinessDay(rawPaymentDate);
+  const overlapThisMonth = daysOverlappingMonth(
+    candidateThisMonth.cycleStart,
+    candidateThisMonth.cycleEnd,
+    viewedYear,
+    viewedMonth
+  );
+  const overlapNextMonth = daysOverlappingMonth(
+    candidateNextMonth.cycleStart,
+    candidateNextMonth.cycleEnd,
+    viewedYear,
+    viewedMonth
+  );
 
-  return { cycleStart, cycleEnd, paymentDate };
+  return overlapNextMonth > overlapThisMonth ? candidateNextMonth : candidateThisMonth;
 }
