@@ -1,20 +1,25 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getCurrentBillingCycle, type BillingCycle } from "./creditCardBilling";
+import {
+  getCurrentBillingCycle,
+  getBillingCycleForMonth,
+  type BillingCycle,
+} from "./creditCardBilling";
 
 export interface AccountBalanceInfo {
   id: string;
   name: string;
   type: string;
-  // 現金・銀行・電子マネー用: 初期残高 + 全期間の収入 - 全期間の支出
+  // 現金・銀行・電子マネー用: 初期残高 + (基準日までの)収入 - 支出
   balance: number | null;
-  // クレジットカード用: 締め日/引き落とし日が設定済みの場合のみ
+  // クレジットカード用
   billing: (BillingCycle & { total: number }) | null;
 }
 
-export async function getAccountBalances(
+async function computeBalances(
   userId: string,
-  asOfExclusiveEnd?: Date
+  getCycle: (closingDay: number, paymentDay: number, paymentMonthOffset: number) => BillingCycle,
+  cashCutoffExclusiveEnd?: Date
 ): Promise<AccountBalanceInfo[]> {
   const accounts = await prisma.account.findMany({
     where: { userId },
@@ -25,11 +30,10 @@ export async function getAccountBalances(
 
   for (const a of accounts) {
     if (a.type === "CREDIT_CARD") {
-      // クレジットカードの請求サイクルは常に「今」基準(月をさかのぼって表示する対象外)
       let billing: (BillingCycle & { total: number }) | null = null;
 
       if (a.closingDay && a.paymentDay) {
-        const cycle = getCurrentBillingCycle(a.closingDay, a.paymentDay, a.paymentMonthOffset ?? 1);
+        const cycle = getCycle(a.closingDay, a.paymentDay, a.paymentMonthOffset ?? 1);
         const sum = await prisma.transaction.aggregate({
           where: {
             accountId: a.id,
@@ -43,7 +47,7 @@ export async function getAccountBalances(
 
       results.push({ id: a.id, name: a.name, type: a.type, balance: null, billing });
     } else {
-      const dateFilter = asOfExclusiveEnd ? { lt: asOfExclusiveEnd } : undefined;
+      const dateFilter = cashCutoffExclusiveEnd ? { lt: cashCutoffExclusiveEnd } : undefined;
       const [incomeSum, expenseSum] = await Promise.all([
         prisma.transaction.aggregate({
           where: {
@@ -69,4 +73,26 @@ export async function getAccountBalances(
   }
 
   return results;
+}
+
+// 常に「今」基準（口座管理ページなど、月の概念が無い画面用）
+export async function getAccountBalances(userId: string): Promise<AccountBalanceInfo[]> {
+  return computeBalances(userId, getCurrentBillingCycle);
+}
+
+// 家計簿ページで表示中の月タブに連動させる版。
+// クレジットカードは「その月を主な利用期間とするサイクル」の請求額・引き落とし予定日を返す
+// (例: 締め日4日・翌月5日払いのカードなら、6月タブ→6/5-7/4利用分・8/5引き落とし)
+export async function getAccountBalancesForMonth(
+  userId: string,
+  viewedYear: number,
+  viewedMonth: number,
+  monthExclusiveEnd: Date
+): Promise<AccountBalanceInfo[]> {
+  return computeBalances(
+    userId,
+    (closingDay, paymentDay, paymentMonthOffset) =>
+      getBillingCycleForMonth(closingDay, paymentDay, paymentMonthOffset, viewedYear, viewedMonth),
+    monthExclusiveEnd
+  );
 }

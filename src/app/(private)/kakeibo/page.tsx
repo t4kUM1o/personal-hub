@@ -7,7 +7,7 @@ import { deleteTransaction, deleteTransactions, runQuickEntry } from "./actions"
 import { CategoryBreakdownChart, MonthlyTrendChart } from "./KakeiboCharts";
 import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
-import { getAccountBalances } from "@/lib/accountBalances";
+import { getAccountBalancesForMonth } from "@/lib/accountBalances";
 import { processDueSubscriptions } from "@/lib/subscriptions";
 import { getUpcomingPayments } from "@/lib/upcomingPayments";
 
@@ -120,7 +120,7 @@ export default async function KakeiboPage({
       where: { userId: user.id, date: { gte: start, lt: end } },
       include: { account: true, category: true },
     }),
-    getAccountBalances(user.id, end),
+    getAccountBalancesForMonth(user.id, year, monthNum, end),
     prisma.quickEntry.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     getUpcomingPayments(user.id),
     // このページを開いた時点でprocessDueSubscriptionsが既に消化済みの請求を取引化しているので、
@@ -327,7 +327,7 @@ export default async function KakeiboPage({
                       {yen(a.billing.total)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {a.billing.paymentDate.toLocaleDateString("ja-JP")}引き落とし予定（現在）
+                      {a.billing.paymentDate.toLocaleDateString("ja-JP")}引き落とし予定
                     </p>
                   </>
                 ) : (

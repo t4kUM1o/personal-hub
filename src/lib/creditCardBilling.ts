@@ -116,3 +116,31 @@ export function getCurrentBillingCycle(
 
   return { cycleStart, cycleEnd, paymentDate };
 }
+
+// 家計簿ページの「表示中の月タブ」に対応するサイクルを返す。
+// 例: 締め日4日・引き落とし翌月5日のカードで6月タブを見ている場合、
+//     6/5〜7/4利用分(7/4締め)・8/5引き落としのサイクルを返す
+// (viewedMonthの"翌月"に締まるサイクル = viewedMonthを主な利用期間とするサイクル、という考え方)
+export function getBillingCycleForMonth(
+  closingDay: number,
+  paymentDay: number,
+  paymentMonthOffset: number,
+  viewedYear: number,
+  viewedMonth: number // 1-indexed
+): BillingCycle {
+  const closingMonth = viewedMonth === 12 ? 1 : viewedMonth + 1;
+  const closingYear = viewedMonth === 12 ? viewedYear + 1 : viewedYear;
+  const cycleEnd = clampDay(closingYear, closingMonth, closingDay);
+
+  const prevClosing = clampDay(viewedYear, viewedMonth, closingDay);
+  const cycleStart = new Date(prevClosing);
+  cycleStart.setDate(cycleStart.getDate() + 1);
+
+  const paymentMonthRaw = closingMonth + paymentMonthOffset;
+  const paymentYear = closingYear + Math.floor((paymentMonthRaw - 1) / 12);
+  const paymentMonth = ((paymentMonthRaw - 1) % 12) + 1;
+  const rawPaymentDate = clampDay(paymentYear, paymentMonth, paymentDay);
+  const paymentDate = nextBusinessDay(rawPaymentDate);
+
+  return { cycleStart, cycleEnd, paymentDate };
+}
