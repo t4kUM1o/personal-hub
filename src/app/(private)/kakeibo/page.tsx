@@ -202,7 +202,7 @@ export default async function KakeiboPage({
   return (
     <main className="p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">家計簿</h1>
+        <h1 className="font-display text-2xl font-bold text-gray-900 dark:text-gray-100">家計簿</h1>
         <Link
           href="/kakeibo/new"
           className="rounded-card bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
@@ -278,24 +278,34 @@ export default async function KakeiboPage({
         </Link>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-4">
-        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">収入</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{yen(income)}</p>
+      <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40 sm:p-5">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">収入</p>
+          <p className="mt-2 font-display text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
+            {yen(income)}
+          </p>
         </div>
-        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">支出</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{yen(expense)}</p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40 sm:p-5">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">支出</p>
+          <p className="mt-2 font-display text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
+            {yen(expense)}
+          </p>
           {pendingSubscriptionTotal > 0 && (
             <p className="mt-1 text-xs text-gray-400">
               サブスク見込み含む: {yen(expenseWithPendingSubscriptions)}
             </p>
           )}
         </div>
-        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">差額</p>
+        <div
+          className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${
+            income - expense >= 0
+              ? "border-accent/20 bg-accent/5 dark:border-accent/30 dark:bg-accent/10"
+              : "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
+          }`}
+        >
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">差額</p>
           <p
-            className={`mt-1 text-lg font-semibold ${
+            className={`mt-2 font-display text-xl font-bold sm:text-2xl ${
               income - expense >= 0 ? "text-accent" : "text-red-600 dark:text-red-400"
             }`}
           >
@@ -314,7 +324,7 @@ export default async function KakeiboPage({
               <Link
                 key={a.id}
                 href="/kakeibo/accounts"
-                className="rounded-card border border-gray-200 p-3 transition-colors hover:border-accent dark:border-gray-800"
+                className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition-colors hover:border-accent dark:border-gray-800 dark:bg-gray-900/40"
               >
                 <p className="text-xs text-gray-500 dark:text-gray-400">{a.name}</p>
                 {a.balance !== null ? (
@@ -340,7 +350,7 @@ export default async function KakeiboPage({
       )}
 
       {upcomingPayments.length > 0 && (
-        <div className="mt-6 rounded-card border border-gray-200 p-4 dark:border-gray-800">
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               直近の引き落とし・支払い予定
@@ -366,7 +376,7 @@ export default async function KakeiboPage({
       )}
 
       {budgetedCategories.length > 0 && (
-        <div className="mt-6 rounded-card border border-gray-200 p-4 dark:border-gray-800">
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             予算の達成状況（{label}）
           </h3>
@@ -398,7 +408,7 @@ export default async function KakeiboPage({
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             カテゴリ別支出（{label}）
           </h3>
@@ -406,7 +416,7 @@ export default async function KakeiboPage({
             <CategoryBreakdownChart data={categoryBreakdown} />
           </div>
         </div>
-        <div className="rounded-card border border-gray-200 p-4 dark:border-gray-800">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             収支推移（直近6ヶ月）
           </h3>
@@ -418,7 +428,7 @@ export default async function KakeiboPage({
 
       <form
         method="GET"
-        className="mt-6 flex flex-wrap items-end gap-3 rounded-card border border-gray-200 p-4 dark:border-gray-800"
+        className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40"
       >
         <input type="hidden" name="month" value={current} />
         <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">

@@ -57,6 +57,7 @@ export async function createPost(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "");
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
+  const coverImage = String(formData.get("coverImage") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "") || null;
   const statusInput = String(formData.get("status") ?? "DRAFT");
   const scheduledAtStr = String(formData.get("scheduledAt") ?? "");
@@ -86,6 +87,7 @@ export async function createPost(formData: FormData) {
       slug,
       body,
       excerpt,
+      coverImage,
       status,
       publishedAt,
       scheduledAt,
@@ -107,6 +109,7 @@ export async function updatePost(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "");
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
+  const coverImage = String(formData.get("coverImage") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "") || null;
   const statusInput = String(formData.get("status") ?? "DRAFT");
   const scheduledAtStr = String(formData.get("scheduledAt") ?? "");
@@ -144,6 +147,7 @@ export async function updatePost(formData: FormData) {
         slug,
         body,
         excerpt,
+        coverImage,
         status,
         publishedAt,
         scheduledAt,

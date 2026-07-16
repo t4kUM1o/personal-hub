@@ -1,5 +1,6 @@
 import type { Category, Tag, Post, PostTag } from "@prisma/client";
 import { MarkdownBodyField } from "./MarkdownBodyField";
+import { CoverImageField } from "./CoverImageField";
 
 function toDatetimeLocalValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -34,6 +35,8 @@ export function PostForm({ action, categories, tags, submitLabel, post }: PostFo
         概要（一覧・OGPで使用、省略可）
         <input type="text" name="excerpt" defaultValue={post?.excerpt ?? ""} className={inputClass} />
       </label>
+
+      <CoverImageField defaultValue={post?.coverImage} />
 
       <label className="block text-sm text-gray-600 dark:text-gray-400">
         カテゴリ
