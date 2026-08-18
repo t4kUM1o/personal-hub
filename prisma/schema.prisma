@@ -130,19 +130,24 @@ enum AccountType {
 }
 
 model Account {
-  id                 String        @id @default(cuid())
+  id                 String         @id @default(cuid())
   userId             String
-  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name               String
   type               AccountType
-  createdAt          DateTime      @default(now())
+  createdAt          DateTime       @default(now())
   transactions       Transaction[]
   closingDay         Int? // 締め日 (1-31。月の日数を超える場合は月末扱い)
   paymentDay         Int? // 引き落とし日 (1-31。同上)
   paymentMonthOffset Int? // 締め日から何ヶ月後に引き落としか (通常1=翌月)
-  initialBalance     Int           @default(0) // 記録を始めた時点の残高(現金・銀行・電子マネー用)
+  initialBalance     Int            @default(0) // 記録を始めた時点の残高(現金・銀行・電子マネー用)
   quickEntries       QuickEntry[]
   subscriptions      Subscription[]
+  // クレジットカードの引き落とし先(支払い元)口座。設定すると引き落とし日に自動で振替が作られる
+  paymentAccountId   String?
+  paymentAccount     Account?       @relation("CardPaymentSource", fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  paymentSourceFor   Account[]      @relation("CardPaymentSource")
+  lastAutoPaymentAt  DateTime? // 自動引き落とし処理を最後に行った、その回の引き落とし予定日
 
   @@unique([userId, name])
 }

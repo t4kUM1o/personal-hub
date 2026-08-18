@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import { createAccount, deleteAccount, updateAccountBilling, updateAccountBalance } from "../actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 import { getAccountBalances } from "@/lib/accountBalances";
+import { processDueCreditCardPayments } from "@/lib/creditCardAutoPay";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export default async function AccountsPage() {
   if (!user) {
     redirect("/login");
   }
+
+  // 引き落とし日を迎えたカードがあれば、ここで振替を作っておく
+  await processDueCreditCardPayments(user.id);
 
   const [accounts, balances] = await Promise.all([
     prisma.account.findMany({
@@ -203,6 +207,18 @@ export default async function AccountsPage() {
                     <p className="text-xs text-gray-400">締め日・引き落とし日が未設定です</p>
                   )}
 
+                  {a.paymentAccountId ? (
+                    <p className="mt-1 text-xs text-accent">
+                      自動振替: 有効（
+                      {accounts.find((x) => x.id === a.paymentAccountId)?.name ?? "不明な口座"}
+                      から引き落とし）
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-400">
+                      自動振替: 未設定（支払い元口座を選ぶと、引き落とし日に自動で家計簿に記録されます）
+                    </p>
+                  )}
+
                   <form
                     action={updateAccountBilling}
                     className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
@@ -241,6 +257,23 @@ export default async function AccountsPage() {
                       <option value="1">翌月</option>
                       <option value="2">翌々月</option>
                     </select>
+                    <label className="flex items-center gap-1">
+                      支払い元
+                      <select
+                        name="paymentAccountId"
+                        defaultValue={a.paymentAccountId ?? ""}
+                        className="rounded-card border border-gray-300 px-1.5 py-1 dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <option value="">未設定（自動振替しない）</option>
+                        {accounts
+                          .filter((other) => other.id !== a.id && other.type !== "CREDIT_CARD")
+                          .map((other) => (
+                            <option key={other.id} value={other.id}>
+                              {other.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                     <button
                       type="submit"
                       className="rounded-card bg-gray-100 px-2 py-1 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"

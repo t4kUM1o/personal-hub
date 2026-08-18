@@ -9,6 +9,7 @@ import { TransactionsTable } from "./TransactionsTable";
 import { MonthPicker } from "./MonthPicker";
 import { getAccountBalancesForMonth } from "@/lib/accountBalances";
 import { processDueSubscriptions } from "@/lib/subscriptions";
+import { processDueCreditCardPayments } from "@/lib/creditCardAutoPay";
 import { getUpcomingPayments } from "@/lib/upcomingPayments";
 
 // DBを見に行くページなので、ビルド時の静的生成ではなく常にリクエスト時にレンダリングする
@@ -91,6 +92,8 @@ export default async function KakeiboPage({
 
   // サブスクの請求日が来ていれば、ここで取引を作って次回請求日を繰り上げる
   await processDueSubscriptions(user.id);
+  // 自動振替が設定されたカードの引き落とし日が来ていれば、支払い元口座から振替を作る
+  await processDueCreditCardPayments(user.id);
 
   const {
     month,

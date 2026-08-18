@@ -245,6 +245,7 @@ export async function updateAccountBilling(formData: FormData) {
   const closingDayStr = String(formData.get("closingDay") ?? "");
   const paymentDayStr = String(formData.get("paymentDay") ?? "");
   const paymentMonthOffsetStr = String(formData.get("paymentMonthOffset") ?? "1");
+  const paymentAccountIdRaw = String(formData.get("paymentAccountId") ?? "");
 
   if (!id) return;
 
@@ -252,12 +253,24 @@ export async function updateAccountBilling(formData: FormData) {
   const paymentDay = paymentDayStr ? Math.min(31, Math.max(1, Number(paymentDayStr) || 1)) : null;
   const paymentMonthOffset = Math.min(3, Math.max(0, Number(paymentMonthOffsetStr) || 1));
 
+  // 支払い元口座は「自分の口座」かつ「自分自身ではない」ことを確認してから設定する
+  let paymentAccountId: string | null = null;
+  if (paymentAccountIdRaw && paymentAccountIdRaw !== id) {
+    const paymentAccount = await prisma.account.findFirst({
+      where: { id: paymentAccountIdRaw, userId: user.id },
+    });
+    if (paymentAccount) {
+      paymentAccountId = paymentAccount.id;
+    }
+  }
+
   await prisma.account.updateMany({
     where: { id, userId: user.id },
     data: {
       closingDay,
       paymentDay,
       paymentMonthOffset: closingDay || paymentDay ? paymentMonthOffset : null,
+      paymentAccountId,
     },
   });
 
