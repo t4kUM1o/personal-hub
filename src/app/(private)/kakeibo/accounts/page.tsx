@@ -40,12 +40,50 @@ export default async function AccountsPage() {
 
   const balanceById = new Map(balances.map((b) => [b.id, b]));
 
+  const totalAssets = balances.reduce((sum, b) => sum + (b.balance ?? 0), 0);
+  const totalCardDebt = balances.reduce((sum, b) => sum + (b.billing?.total ?? 0), 0);
+  const netWorth = totalAssets - totalCardDebt;
+
   return (
     <main className="p-8">
       <Link href="/kakeibo" className="text-sm text-accent hover:underline">
         ← 家計簿に戻る
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">口座管理</h1>
+
+      <div className="mt-6 grid max-w-2xl gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">総資産</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {yen(totalAssets)}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-400">現金・銀行・電子マネーの合計</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">カード未精算額</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {yen(totalCardDebt)}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-400">今のご利用期間分の合計</p>
+        </div>
+        <div
+          className={`rounded-2xl border p-4 shadow-sm ${
+            netWorth >= 0
+              ? "border-accent/20 bg-accent/5 dark:border-accent/30 dark:bg-accent/10"
+              : "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
+          }`}
+        >
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">純資産</p>
+          <p
+            className={`mt-1 text-xl font-semibold ${
+              netWorth >= 0 ? "text-accent" : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {yen(netWorth)}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-400">総資産 − カード未精算額</p>
+        </div>
+      </div>
 
       <form action={createAccount} className="mt-6 max-w-md space-y-3 rounded-card border border-gray-200 p-4 dark:border-gray-800">
         <div className="flex gap-2">

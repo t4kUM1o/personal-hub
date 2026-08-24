@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { getCurrentBillingCycle } from "@/lib/creditCardBilling";
 
 async function requireUser() {
   const user = await getSessionUser();
@@ -180,6 +181,23 @@ export async function createTransfer(formData: FormData) {
       },
     }),
   ]);
+
+  // 振替先がクレジットカードなら、そのサイクル分は「手動で精算済み」とみなし、
+  // 自動引き落とし機能が後から同じサイクル分を二重に処理しないようにしておく
+  if (toAccount.type === "CREDIT_CARD" && toAccount.closingDay && toAccount.paymentDay) {
+    const cycle = getCurrentBillingCycle(
+      toAccount.closingDay,
+      toAccount.paymentDay,
+      toAccount.paymentMonthOffset ?? 1,
+      date
+    );
+    if (!toAccount.lastAutoPaymentAt || cycle.paymentDate > toAccount.lastAutoPaymentAt) {
+      await prisma.account.update({
+        where: { id: toAccount.id },
+        data: { lastAutoPaymentAt: cycle.paymentDate },
+      });
+    }
+  }
 
   revalidatePath("/kakeibo");
   redirect("/kakeibo");
