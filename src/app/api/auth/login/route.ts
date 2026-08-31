@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : null;
   const password = typeof body?.password === "string" ? body.password : null;
 
+  const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+
   if (!email || !password) {
     return NextResponse.json(
       { error: "メールアドレスとパスワードを入力してください" },
@@ -29,6 +31,7 @@ export async function POST(request: NextRequest) {
   const rateLimitKey = `login:${email}`;
   const { allowed, retryAfterSeconds } = checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT);
   if (!allowed) {
+    await logAuditEvent({ action: "login_blocked", detail: email, ipAddress });
     const minutes = Math.ceil((retryAfterSeconds ?? 0) / 60);
     return NextResponse.json(
       { error: `ログイン試行回数が多すぎます。約${minutes}分後に再度お試しください` },
@@ -40,6 +43,12 @@ export async function POST(request: NextRequest) {
   const isValid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
 
   if (!user || !isValid) {
+    await logAuditEvent({
+      userId: user?.id ?? null,
+      action: "login_failed",
+      detail: email,
+      ipAddress,
+    });
     return NextResponse.json(
       { error: "メールアドレスまたはパスワードが正しくありません" },
       { status: 401 }
@@ -56,13 +65,13 @@ export async function POST(request: NextRequest) {
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
-    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+    ipAddress,
   });
 
   await logAuditEvent({
     userId: user.id,
     action: "login",
-    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+    ipAddress,
   });
 
   return NextResponse.json({ id: user.id, email: user.email, role: user.role });

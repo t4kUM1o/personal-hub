@@ -14,6 +14,8 @@ export async function POST(request: NextRequest) {
   const challengeToken = typeof body?.challengeToken === "string" ? body.challengeToken : null;
   const code = typeof body?.code === "string" ? body.code.trim() : null;
 
+  const ipAddress = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+
   if (!challengeToken || !code) {
     return NextResponse.json({ error: "不正なリクエストです" }, { status: 400 });
   }
@@ -21,6 +23,7 @@ export async function POST(request: NextRequest) {
   const rateLimitKey = `2fa:${challengeToken}`;
   const { allowed, retryAfterSeconds } = checkRateLimit(rateLimitKey, TWO_FA_RATE_LIMIT);
   if (!allowed) {
+    await logAuditEvent({ action: "2fa_blocked", ipAddress });
     const minutes = Math.ceil((retryAfterSeconds ?? 0) / 60);
     return NextResponse.json(
       { error: `試行回数が多すぎます。約${minutes}分後にもう一度ログインからやり直してください` },
@@ -50,6 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isValid) {
+    await logAuditEvent({ userId: user.id, action: "2fa_failed", ipAddress });
     return NextResponse.json({ error: "認証コードが正しくありません" }, { status: 401 });
   }
 
@@ -57,14 +61,14 @@ export async function POST(request: NextRequest) {
 
   await createSession(user.id, {
     userAgent: request.headers.get("user-agent"),
-    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+    ipAddress,
   });
 
   await logAuditEvent({
     userId: user.id,
     action: "login",
     detail: "2段階認証",
-    ipAddress: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
+    ipAddress,
   });
 
   return NextResponse.json({ id: user.id, email: user.email, role: user.role });

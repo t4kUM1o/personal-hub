@@ -24,25 +24,37 @@ export async function processDueCreditCardPayments(userId: string): Promise<void
 
   for (const card of cards) {
     if (!card.closingDay || !card.paymentDay || !card.paymentAccountId) continue;
+    const closingDay = card.closingDay;
+    const paymentDay = card.paymentDay;
+    const offset = card.paymentMonthOffset ?? 1;
 
-    // 初回(まだ一度も自動処理していない)は、約35日前を起点にする。
-    // 「今日」を起点にすると、"今開いている進行中のサイクル"しか見えず、
-    // ちょうど直前に引き落とし日を迎えていた分を取りこぼしてしまうため
-    // (このバグで実際にPayPayの引き落とし漏れが発生した)。
-    // 35日はサイクル1回分(最大31日)より少し長い、安全マージン。
-    let referenceDate = card.lastAutoPaymentAt
-      ? new Date(card.lastAutoPaymentAt.getTime() + 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000);
+    let cycle;
+
+    if (card.lastAutoPaymentAt) {
+      // 通常運転: 前回処理済みの引き落とし日の翌日を起点に、次のサイクルを求める
+      const referenceDate = new Date(card.lastAutoPaymentAt.getTime() + 24 * 60 * 60 * 1000);
+      cycle = getCurrentBillingCycle(closingDay, paymentDay, offset, referenceDate);
+    } else {
+      // 初回(まだ一度も自動処理していない): 「今」開いているサイクルを起点に、
+      // 支払日を迎えているサイクルが見つかるまで実際に1サイクルずつ遡って探す。
+      // 日数の固定オフセットで遡ろうとすると、締め日次第で必要な遡り幅が変わってしまい、
+      // 実際にこの方式で「1サイクル分ズレて処理される」不具合が発生したため、
+      // 締め日の値に左右されない、確実な方式に変更した。
+      cycle = getCurrentBillingCycle(closingDay, paymentDay, offset, now);
+      let stepsBack = 0;
+      while (cycle.paymentDate > now && stepsBack < 24) {
+        const prevReferenceDate = new Date(cycle.cycleStart.getTime() - 24 * 60 * 60 * 1000);
+        cycle = getCurrentBillingCycle(closingDay, paymentDay, offset, prevReferenceDate);
+        stepsBack += 1;
+      }
+      if (cycle.paymentDate > now) {
+        // 24回遡っても支払日を迎えたサイクルが見つからない = まだ引き落とし自体が発生していない
+        continue;
+      }
+    }
 
     let iterations = 0;
     while (iterations < 24) {
-      const cycle = getCurrentBillingCycle(
-        card.closingDay,
-        card.paymentDay,
-        card.paymentMonthOffset ?? 1,
-        referenceDate
-      );
-
       if (cycle.paymentDate > now) break;
 
       const sum = await prisma.transaction.aggregate({
@@ -89,7 +101,8 @@ export async function processDueCreditCardPayments(userId: string): Promise<void
         data: { lastAutoPaymentAt: cycle.paymentDate },
       });
 
-      referenceDate = new Date(cycle.cycleEnd.getTime() + 24 * 60 * 60 * 1000);
+      const nextReferenceDate = new Date(cycle.cycleEnd.getTime() + 24 * 60 * 60 * 1000);
+      cycle = getCurrentBillingCycle(closingDay, paymentDay, offset, nextReferenceDate);
       iterations += 1;
     }
   }

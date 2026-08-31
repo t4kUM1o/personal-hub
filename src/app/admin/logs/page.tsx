@@ -4,12 +4,18 @@ export const dynamic = "force-dynamic";
 
 const ACTION_LABELS: Record<string, string> = {
   login: "ログイン",
+  login_failed: "ログイン失敗",
+  login_blocked: "ログイン制限（試行過多）",
   password_reset: "パスワードリセット",
   "2fa_enabled": "2段階認証を有効化",
   "2fa_disabled": "2段階認証を無効化",
+  "2fa_failed": "2段階認証失敗",
+  "2fa_blocked": "2段階認証制限（試行過多）",
   user_role_changed: "ユーザー権限変更",
   user_deleted: "ユーザー削除",
 };
+
+const WARNING_ACTIONS = new Set(["login_failed", "login_blocked", "2fa_failed", "2fa_blocked"]);
 
 export default async function AdminLogsPage() {
   const logs = await prisma.auditLog.findMany({
@@ -42,7 +48,13 @@ export default async function AdminLogsPage() {
                 <td className="whitespace-nowrap px-4 py-2 text-gray-600 dark:text-gray-300">
                   {log.createdAt.toLocaleString("ja-JP")}
                 </td>
-                <td className="px-4 py-2 text-gray-800 dark:text-gray-200">
+                <td
+                  className={
+                    WARNING_ACTIONS.has(log.action)
+                      ? "px-4 py-2 font-medium text-red-600 dark:text-red-400"
+                      : "px-4 py-2 text-gray-800 dark:text-gray-200"
+                  }
+                >
                   {ACTION_LABELS[log.action] ?? log.action}
                 </td>
                 <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
