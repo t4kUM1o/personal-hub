@@ -25,11 +25,14 @@ export async function processDueCreditCardPayments(userId: string): Promise<void
   for (const card of cards) {
     if (!card.closingDay || !card.paymentDay || !card.paymentAccountId) continue;
 
-    // 初回(まだ一度も自動処理していない)は「今」から見て直近のサイクルだけを対象にする。
-    // 過去の全履歴を遡って大量の振替を作らないようにするため。
+    // 初回(まだ一度も自動処理していない)は、約35日前を起点にする。
+    // 「今日」を起点にすると、"今開いている進行中のサイクル"しか見えず、
+    // ちょうど直前に引き落とし日を迎えていた分を取りこぼしてしまうため
+    // (このバグで実際にPayPayの引き落とし漏れが発生した)。
+    // 35日はサイクル1回分(最大31日)より少し長い、安全マージン。
     let referenceDate = card.lastAutoPaymentAt
       ? new Date(card.lastAutoPaymentAt.getTime() + 24 * 60 * 60 * 1000)
-      : now;
+      : new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000);
 
     let iterations = 0;
     while (iterations < 24) {
