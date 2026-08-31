@@ -5,7 +5,7 @@ import "highlight.js/styles/github-dark.css";
 
 const displayFont = M_PLUS_Rounded_1c({
   subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: ["700"],
   variable: "--font-display",
   display: "swap",
 });

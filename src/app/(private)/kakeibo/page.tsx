@@ -284,13 +284,13 @@ export default async function KakeiboPage({
       <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40 sm:p-5">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">収入</p>
-          <p className="mt-2 font-display text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
+          <p className="mt-2 text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
             {yen(income)}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/40 sm:p-5">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">支出</p>
-          <p className="mt-2 font-display text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
+          <p className="mt-2 text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
             {yen(expense)}
           </p>
           {pendingSubscriptionTotal > 0 && (
@@ -308,7 +308,7 @@ export default async function KakeiboPage({
         >
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">差額</p>
           <p
-            className={`mt-2 font-display text-xl font-bold sm:text-2xl ${
+            className={`mt-2 text-xl font-bold sm:text-2xl ${
               income - expense >= 0 ? "text-accent" : "text-red-600 dark:text-red-400"
             }`}
           >
