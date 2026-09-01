@@ -2,10 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { createSubscription, deleteSubscription, toggleSubscriptionActive } from "../actions";
-import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
+import { createSubscription } from "../actions";
 import { BackLink } from "@/components/ui/BackLink";
 import { processDueSubscriptions } from "@/lib/subscriptions";
+import { SubscriptionRow } from "./SubscriptionRow";
 
 export const dynamic = "force-dynamic";
 
@@ -118,47 +118,23 @@ export default async function SubscriptionsPage() {
 
       <ul className="mt-6 max-w-md space-y-2">
         {subscriptions.map((s) => (
-          <li
+          <SubscriptionRow
             key={s.id}
-            className={`rounded-card border px-4 py-3 text-sm ${
-              s.active
-                ? "border-gray-200 dark:border-gray-800"
-                : "border-gray-100 opacity-60 dark:border-gray-900"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300">
-                {s.name}{" "}
-                <span className="text-gray-400">
-                  （{yen(s.amount)} / {s.interval === "MONTHLY" ? "毎月" : "毎年"}・{s.account.name}）
-                </span>
-              </span>
-              <div className="flex gap-2">
-                <form action={toggleSubscriptionActive}>
-                  <input type="hidden" name="id" value={s.id} />
-                  <button
-                    type="submit"
-                    className="text-xs text-gray-500 hover:underline dark:text-gray-400"
-                  >
-                    {s.active ? "一時停止" : "再開"}
-                  </button>
-                </form>
-                <form action={deleteSubscription}>
-                  <input type="hidden" name="id" value={s.id} />
-                  <ConfirmSubmitButton
-                    confirmMessage={`「${s.name}」を削除しますか？`}
-                    className="text-xs text-red-600 hover:underline dark:text-red-400"
-                  >
-                    削除
-                  </ConfirmSubmitButton>
-                </form>
-              </div>
-            </div>
-            <p className="mt-1 text-xs text-gray-400">
-              次回請求日: {s.nextBillingAt.toLocaleDateString("ja-JP")}
-              {!s.active && "（一時停止中）"}
-            </p>
-          </li>
+            subscription={{
+              id: s.id,
+              name: s.name,
+              amount: s.amount,
+              interval: s.interval,
+              nextBillingAt: s.nextBillingAt.toISOString(),
+              active: s.active,
+              memo: s.memo,
+              accountId: s.accountId,
+              accountName: s.account.name,
+              categoryId: s.categoryId,
+            }}
+            accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          />
         ))}
         {subscriptions.length === 0 && (
           <li className="rounded-card border border-gray-200 px-4 py-6 text-center text-gray-400 dark:border-gray-800">

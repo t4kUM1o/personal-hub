@@ -2,7 +2,15 @@
 
 import { useRouter } from "next/navigation";
 
-export function MonthPicker({ value, label }: { value: string; label: string }) {
+export function MonthPicker({
+  value,
+  label,
+  filterQueryString,
+}: {
+  value: string;
+  label: string;
+  filterQueryString?: string;
+}) {
   const router = useRouter();
 
   return (
@@ -12,7 +20,8 @@ export function MonthPicker({ value, label }: { value: string; label: string }) 
         value={value}
         onChange={(e) => {
           if (e.target.value) {
-            router.push(`/kakeibo?month=${e.target.value}`);
+            const suffix = filterQueryString ? `&${filterQueryString}` : "";
+            router.push(`/kakeibo?month=${e.target.value}${suffix}`);
           }
         }}
         aria-label="年月を選択"

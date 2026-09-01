@@ -671,6 +671,44 @@ export async function createSubscription(formData: FormData) {
   revalidatePath("/kakeibo/subscriptions");
 }
 
+export async function updateSubscription(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const amount = parseAmount(formData.get("amount"));
+  const interval = formData.get("interval") === "YEARLY" ? "YEARLY" : "MONTHLY";
+  const nextBillingAtStr = String(formData.get("nextBillingAt") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  const categoryId = String(formData.get("categoryId") ?? "") || null;
+  const memo = String(formData.get("memo") ?? "").trim() || null;
+
+  if (!id || !name || !accountId || !nextBillingAtStr) {
+    throw new Error("入力内容を確認してください");
+  }
+
+  const nextBillingAt = new Date(nextBillingAtStr);
+  if (Number.isNaN(nextBillingAt.getTime())) {
+    throw new Error("次回請求日が不正です");
+  }
+  const billingDay = nextBillingAt.getDate();
+
+  await prisma.subscription.updateMany({
+    where: { id, userId: user.id },
+    data: {
+      name,
+      amount,
+      interval,
+      billingDay,
+      nextBillingAt,
+      accountId,
+      categoryId,
+      memo,
+    },
+  });
+
+  revalidatePath("/kakeibo/subscriptions");
+}
+
 export async function toggleSubscriptionActive(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("id") ?? "");

@@ -193,6 +193,13 @@ export default async function KakeiboPage({
   const budgetedCategories = categories.filter((c) => c.type === "EXPENSE" && c.budget);
   const monthlyTrend = await getMonthlyTrend(user.id, year, monthNum);
 
+  const filterParams = new URLSearchParams();
+  if (typeFilter) filterParams.set("type", typeFilter);
+  if (accountIdFilter) filterParams.set("accountId", accountIdFilter);
+  if (categoryIdFilter) filterParams.set("categoryId", categoryIdFilter);
+  if (q) filterParams.set("q", q);
+  const filterQueryString = filterParams.toString();
+
   const exportParams = new URLSearchParams({ month: current });
   if (typeFilter) exportParams.set("type", typeFilter);
   if (accountIdFilter) exportParams.set("accountId", accountIdFilter);
@@ -267,14 +274,14 @@ export default async function KakeiboPage({
 
       <div className="mt-6 flex items-center justify-between">
         <Link
-          href={`/kakeibo?month=${prev}`}
+          href={`/kakeibo?month=${prev}${filterQueryString ? `&${filterQueryString}` : ""}`}
           className="text-sm text-gray-500 hover:underline dark:text-gray-400"
         >
           ← 前月
         </Link>
-        <MonthPicker value={current} label={label} />
+        <MonthPicker value={current} label={label} filterQueryString={filterQueryString} />
         <Link
-          href={`/kakeibo?month=${next}`}
+          href={`/kakeibo?month=${next}${filterQueryString ? `&${filterQueryString}` : ""}`}
           className="text-sm text-gray-500 hover:underline dark:text-gray-400"
         >
           翌月 →
